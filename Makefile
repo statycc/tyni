@@ -14,3 +14,4 @@ build: $(GRAMMAR)
 
 clean:
 	rm -rf $(OUT)
+	rm -rf output
