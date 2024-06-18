@@ -35,8 +35,15 @@ class VisitorInterp(JavaParserVisitor):
         body = ctx.methodBody()
         name = ctx.identifier().getText()
         ret_t = ctx.typeTypeOrVoid().getText()
+        MatrixGenerator().visit(body)
         self.cap_method(ret_t, name, body.getText())
         return print(name, ':', body.getText(), '\n')
+
+
+class MatrixGenerator(JavaParserVisitor):
+    def visitBlockStatement(
+            self, ctx: JavaParser.BlockStatementContext):
+        print(ctx.getChildCount(), ctx.getText())
 
 
 def default_out(input_file: str) -> str:
