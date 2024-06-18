@@ -131,6 +131,10 @@ class RecVisitor(ExtVisitor):
             print('(!) other:', ctx.getText())
         super().visitStatement(ctx)
 
+    def visitExpression(self, ctx: JavaParser.ExpressionContext):
+        super().visitExpression(ctx)
+        print("exp", ctx.getText())
+
     def __stmt_exp(self, ctx: JavaParser.StatementContext):
         print('stmt exp --', ctx.getText())
         super().visitStatement(ctx)
@@ -149,10 +153,6 @@ class RecVisitor(ExtVisitor):
         ex_vars = self.occurs(exp)
         RecVisitor().visit(body)
         self.merge(self.vars, ex_vars)
-
-    def visitExpression(self, ctx: JavaParser.ExpressionContext):
-        super().visitExpression(ctx)
-        print("exp", ctx.getText())
 
 
 def default_out(input_file: str) -> str:
