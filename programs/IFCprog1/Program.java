@@ -1,4 +1,4 @@
-package IFCalcProg1;
+package IFCprog1;
 
 public class Program {
 
