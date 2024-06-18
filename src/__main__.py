@@ -90,36 +90,56 @@ class RecVisitor(ExtVisitor):
         print('(!) method call:', ctx.getText())
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
+        """Statement handlers; see grammars/JavaParser.g4 L#508."""
         if ctx.blockLabel:
             print('block:', ctx.getText())
-            super().visitStatement(ctx)
+        elif ctx.ASSERT():
+            print('assert:', ctx.getText())
         elif ctx.IF():
-            self.__if(ctx)
+            return self.__if(ctx)
+        elif ctx.FOR():
+            print('for loop:', ctx.getText())
         elif ctx.WHILE():
-            self.__while(ctx)
-        elif ctx.statementExpression:
-            print('stmt exp', ctx.getText())
-            super().visitStatement(ctx)
-        elif ctx.switchExpression():
+            return self.__while(ctx)
+        elif ctx.DO():
+            print('do while loop:', ctx.getText())
+        elif ctx.TRY():
+            print('try block:', ctx.getText())
+        elif ctx.SWITCH():
             print('switch:', ctx.getText())
-            super().visitStatement(ctx)
+        elif ctx.SYNCHRONIZED():
+            print('sync:', ctx.getText())
+        elif ctx.RETURN():
+            print('return:', ctx.getText())
+        elif ctx.THROW():
+            print('throw:', ctx.getText())
+        elif ctx.BREAK():
+            print('break:', ctx.getText())
+        elif ctx.CONTINUE():
+            print('cont:', ctx.getText())
+        elif ctx.YIELD():
+            print('yield:', ctx.getText())
+        elif ctx.SEMI():
+            return self.__stmt_exp(ctx)
+        elif ctx.statementExpression:
+            return self.__stmt_exp(ctx)
+        elif ctx.switchExpression():
+            print('switch exp:', ctx.getText())
         elif ctx.identifierLabel:
             print('id label:', ctx.getText())
-            super().visitStatement(ctx)
         else:
-            print('other', ctx.getText())
-            super().visitStatement(ctx)
-        print('-' * 40)
+            print('(!) other:', ctx.getText())
+        super().visitStatement(ctx)
 
     def __stmt_exp(self, ctx: JavaParser.StatementContext):
-        print('stmt exp', ctx.getText())
+        print('stmt exp --', ctx.getText())
         super().visitStatement(ctx)
 
     def __if(self, ctx: JavaParser.StatementContext):
         exp, tb = ctx.getChild(1), ctx.getChild(2)
         exv, fbv = self.occurs(exp), RecVisitor()
         tbv = RecVisitor().visit(tb)
-        if ctx.getChildCount() <= 4:
+        if ctx.getChildCount() > 4:
             fb = ctx.getChild(4)
             fbv.visit(fb)
         self.merge(self.vars, exv, tbv.vars, fbv.vars)
@@ -138,16 +158,15 @@ class RecVisitor(ExtVisitor):
 def default_out(input_file: str) -> str:
     file_only = os.path.splitext(input_file)[0]
     file_name = '_'.join(file_only.split('/')[1:])
-    # file_name = os.path.basename(file_only)
     return os.path.join("output", f"{file_name}.json")
 
 
-def save_result(file_name: str, file_content: dict):
+def save_result(file_name: str, content: dict):
     dir_path, _ = os.path.split(file_name)
     if len(dir_path) > 0 and not os.path.exists(dir_path):
         os.makedirs(dir_path)
     with open(file_name, "w") as outfile:
-        json.dump(file_content, outfile, indent=4)
+        json.dump(content, outfile, indent=4)
 
 
 if __name__ == '__main__':
