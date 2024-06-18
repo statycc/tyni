@@ -1,8 +1,8 @@
+#!/usr/bin/env python3
+
 import sys
 from antlr4 import *
-from ExprLexer import ExprLexer
-from ExprParser import ExprParser
-from VisitorInterp import VisitorInterp
+from src import ExprLexer, ExprParser, VisitorInterp
 
 
 def main(argv):

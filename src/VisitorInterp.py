@@ -1,7 +1,7 @@
 import sys
 from antlr4 import *
-from ExprParser import ExprParser
-from ExprVisitor import ExprVisitor
+from src import ExprParser
+from src import ExprVisitor
 
 
 class VisitorInterp(ExprVisitor):
