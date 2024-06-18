@@ -27,23 +27,78 @@ class VisitorInterp(JavaParserVisitor):
     def __init__(self):
         self.result = {}
 
-    def cap_method(self, r, n, b):
-        self.result[n] = {'ret_type': r, 'body': b}
+    def record(self, n, **kwargs):
+        self.result[n] = {**kwargs}
 
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
-        body = ctx.methodBody()
+        ret_type = ctx.typeTypeOrVoid().getText()
         name = ctx.identifier().getText()
-        ret_t = ctx.typeTypeOrVoid().getText()
-        MatrixGenerator().visit(body)
-        self.cap_method(ret_t, name, body.getText())
-        return print(name, ':', body.getText(), '\n')
+        body = ctx.methodBody()
+        params = IdVisitor().visit(ctx.formalParameters())
+        b_visit = RecMethodVisitor(params)
+        b_visit.visit(body)
+        self.record(
+            name,
+            # 0: visitBlockStatement
+            # 1: method body
+            body=body.getChild(0).getChild(1).getText(),
+            ret_type=ret_type,
+            variables=list(b_visit.vars),
+            matrix=b_visit.matrix)
 
 
-class MatrixGenerator(JavaParserVisitor):
+class IdVisitor(JavaParserVisitor):
+
+    def __init__(self):
+        self.vars = {}
+
+    def visit(self, tree):
+        super().visit(tree)
+        return self.vars
+
+    def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
+        super().visitIdentifier(ctx)
+        name = ctx.getText()
+        self.vars[name] = name
+
+
+class RecMethodVisitor(JavaParserVisitor):
+
+    def __init__(self, init_vars=None):
+        self.vars = init_vars or {}
+        self.matrix = {}
+
     def visitBlockStatement(
             self, ctx: JavaParser.BlockStatementContext):
-        print(ctx.getChildCount(), ctx.getText())
+        super().visitBlockStatement(ctx)
+        print('-' * 40)
+
+    def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
+        super().visitMethodCall(ctx)
+        print('method call:', ctx.getText())
+
+    def visitStatement(self, ctx: JavaParser.StatementContext):
+        if ctx.IF():
+            self.__if(ctx)
+        else:
+            print(ctx.getText())
+            super().visitStatement(ctx)
+
+    def __if(self, ctx: JavaParser.StatementContext):
+        cond = ctx.getChild(1)
+        occ = self.occurs(cond)
+        true_branch = ctx.getChild(2).getText()
+        else_branch = None if ctx.getChildCount() < 5 \
+            else ctx.getChild(4).getText()
+        print("if stmt:",
+              cond.getText(), '->', list(occ),
+              '\n', true_branch, '\n', else_branch)
+
+    def occurs(self, exp: JavaParser.ExpressionContext):
+        occ_vars = IdVisitor().visit(exp)
+        self.vars.update(occ_vars)
+        return occ_vars
 
 
 def default_out(input_file: str) -> str:
