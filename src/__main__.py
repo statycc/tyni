@@ -28,7 +28,7 @@ class VisitorInterp(JavaParserVisitor):
         self.result = {}
 
     def cap_method(self, r, n, b):
-        self.result[n] = {'ret_type': r, 'name': n, 'body': b}
+        self.result[n] = {'ret_type': r, 'body': b}
 
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
@@ -41,7 +41,7 @@ class VisitorInterp(JavaParserVisitor):
 
 def default_out(input_file: str) -> str:
     file_only = os.path.splitext(input_file)[0]
-    file_name = '_'.join(file_only.split('/'))
+    file_name = '_'.join(file_only.split('/')[1:])
     # file_name = os.path.basename(file_only)
     return os.path.join("output", f"{file_name}.json")
 
