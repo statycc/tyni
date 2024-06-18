@@ -1,13 +1,15 @@
-ANTLRV=4.13.1  # must match requirements.txt
-
-GRAMMAR=Expr.g4
-OUT=parser
+ANTLRV=4.13.1  # must match install in requirements.txt
+GRAMMAR=JavaLexer.g4 JavaParser.g4
+TARGET=Python3
+OUT=src/parser
 
 all: build
 
-build: Expr.g4
-	@test -d $(OUT) || mkdir $(OUT)
-	antlr4 -v $(ANTLRV) -Dlanguage=Python3 -visitor $(GRAMMAR) -o $(OUT)
+build: $(GRAMMAR)
+	antlr4 -v $(ANTLRV) $(GRAMMAR) \
+	-Dlanguage=$(TARGET) \
+	-visitor -no-listener \
+	-o $(OUT)
 
 clean:
 	rm -rf $(OUT)
