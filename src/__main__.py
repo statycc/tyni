@@ -3,7 +3,7 @@
 import sys
 import json
 import os
-from antlr4 import *
+from antlr4 import FileStream, CommonTokenStream
 from src import JavaLexer, JavaParser, JavaParserVisitor
 
 

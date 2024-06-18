@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # INSTALL DEPENDENCIES
-pip install -r requirements-dev.txt
+pip install -r requirements.txt
 
 # INITIALIZE ANTLR4
 # will download and install Java plus the latest ANTLR jar:
