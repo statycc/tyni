@@ -10,12 +10,8 @@ public class Program {
     }
 
     /**
-     * [Hainry & Péchoux (2023)] EXAMPLE 3.14: Bounded concatenation
+     * [Hainry(2023)] EXAMPLE 3.14: Bounded concatenation
      * concatenates two lists given as input up to some fixed bound.
-     * <p>
-     * The judgment Γ ⊢NI bconcat : 1 can be derived for the typing
-     * environment Γ defined by Γ(x) = Γ(w) ≜ 1 and Γ(y) = Γ(z) ≜ 0.
-     * Hence bconcat ∈ NIΓ.
      */
     protected List<Integer> bconcat(List<Integer> x, int w) {
         int z;

@@ -5,13 +5,6 @@ public class TuringMachine {
 
     /**
      * [Hainry (2023)] Sect. 4.4 (p. 17 - 18): STR is undecidable.
-     * Encode deterministic one-tape TMs...
-     * Program can be typed in NI by setting Γ(s) = Γ(left) = Γ(right) ≜ 1 and
-     * checking that Γ ⊢NI true : 2 can be derived.
-     * Program is not in STR, as the statement st(l) breaks the noninterference
-     * (s increases in a loop guarded by itself).
-     *
-     * @return
      */
     public int run(boolean ctrl) {
         s = 0;

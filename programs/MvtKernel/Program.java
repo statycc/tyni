@@ -16,6 +16,7 @@ public class Program {
         System.out.println(Arrays.toString(x2));
     }
 
+    /* PolyBench/C linear algebra mvt kernel */
     static protected void mvt(
             int N, int[] x1, int[] x2,
             int[] y1, int[] y2, int[][] A) {

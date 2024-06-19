@@ -13,10 +13,6 @@ public class Program {
      * [Hainry (2023)]  EXAMPLE 3.15: Nested loops
      * Adds a number n of new elements in a list, where n is equal
      * to the sum of the integers of the initial list.
-     * <p>
-     * The judgment Γ ⊢NI nested : 2 can be derived for the
-     * typing environment Γ defined by
-     * Γ(x) ≜ 2, Γ(z) ≜ 1, and Γ(y) = 0. Hence nested ∈ NIΓ.
      */
     protected List<Integer> nested(List<Integer> x) {
         int z;

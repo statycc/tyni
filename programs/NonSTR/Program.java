@@ -10,9 +10,9 @@ public class Program {
 
     /**
      * [Hainry (2023)] This statement runs in polynomial time
-     * and is non-interfering by setting, for example, Γ(x) = 1.
+     * and is non-interfering by setting, for example, |-(x) = 1.
      * However, it is not stratified, as the reduction of assignment
-     * x := x + 1; make the level-1 value increase.
+     * x = x + 1; make the level-1 value increase.
      */
     static protected int nonStr() {
         int x = 0;

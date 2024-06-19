@@ -46,9 +46,9 @@ def __choose_analyzer(input_file: str) -> Optional[Type[AbstractAnalyzer]]:
 def __logger_setup(level: int) -> logging.Logger:
     root_log = logging.getLogger(prog_name)
     root_log.setLevel(level)
-    extras = " %(module)s" if level == logging.DEBUG else ""
-    fmt = f"[%(asctime)s] %(levelname)s{extras}: %(message)s"
-    formatter = logging.Formatter(fmt, datefmt="%H:%M:%S")
+    extras = ' %(module)s' if level == logging.DEBUG else ''
+    fmt = f'[%(asctime)s] %(levelname)s{extras}: %(message)s'
+    formatter = logging.Formatter(fmt, datefmt='%H:%M:%S')
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(formatter)
     root_log.addHandler(stream_handler)
@@ -59,32 +59,32 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
     """Setup available program arguments."""
     parser.add_argument(
         'input',
-        help="path to program file to analyze",
-        nargs="?"
+        help='path to program file to analyze',
+        nargs='?'
+    )
+    parser.add_argument(
+        '-v', '--version',
+        action='version',
+        version='%(prog)s ' + __version__,
     )
     parser.add_argument(
         '-o', '--out',
-        action="store",
-        dest="out",
-        help="file where to store analysis result",
+        action='store',
+        dest='out',
+        help='file where to store analysis result',
+    )
+    parser.add_argument(
+        '--parse',
+        action='store_true',
+        help='parse only without analysis'
     )
     parser.add_argument(
         '-l',
-        action="store",
+        action='store',
         choices=['0', 'v', 'vv', 'vvv', 'vvvv'],
-        dest="log_level",
-        help="logger verbosity: 0=min … vvvv=max",
+        dest='log_level',
+        help='logger verbosity: 0=min … vvvv=max',
         default='vvvv'
-    )
-    parser.add_argument(
-        "--parse",
-        action='store_true',
-        help="parse only without analysis"
-    )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version="%(prog)s " + __version__,
     )
     return parser.parse_args(None)
 

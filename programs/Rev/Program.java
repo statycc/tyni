@@ -11,10 +11,8 @@ public class Program {
 
     /**
      * [Hainry (2023)] EXAMPLE 2.1: List reversal
-     * rev is a non-interfering program in NI,
-     * for the typing assignment Γ(x) ≜ 1 and Γ(y) = Γ(z) ≜ 0.
-     * rev cannot be typed wrt a typing environment Γ
-     * such that Γ(x) = 0 or Γ(x) ≺ Γ(y).
+     * rev is a non-interfering program in NI for
+     * some typing assignments, but not all.
      */
     protected List<Integer> rev(List<Integer> x) {
         List<Integer> y = null;

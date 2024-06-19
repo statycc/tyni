@@ -29,6 +29,9 @@ rebuild_parser:
 	rm -rf $(OUT)
 	make parser
 
+parse_test:
+	@$(foreach p, $(PROGS), python3 -m src $(P_DIR)/$(p)/$(PNAME).java --parse -l vvvv ; )
+
 clean:
 	@rm -rf $(O_DIR) $(B_DIR) output
 	@find . -name \*.Program.txt -type f -delete

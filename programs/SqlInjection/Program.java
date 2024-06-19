@@ -6,6 +6,7 @@ public class Program {
         example("secret");
     }
 
+    /** From [Huang et al 2014] */
     static protected void example(String request) {
         String user = request;
         String sb1 = "SELECT * FROM Users WHERE name=";
