@@ -25,7 +25,8 @@ class JavaAnalyzer(AbstractAnalyzer):
 
     def parse(self, exit_on_error: bool = False) -> JavaAnalyzer:
         logger.debug(f'parsing {self.input_file}')
-        input_stream = FileStream(self.input_file)
+        input_stream = FileStream(
+            self.input_file, encoding="UTF-8")
         lexer = JavaLexer(input_stream)
         stream = CommonTokenStream(lexer)
         parser = JavaParser(stream)
