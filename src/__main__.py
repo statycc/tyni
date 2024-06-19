@@ -79,16 +79,12 @@ class MethodVisitor(ExtVisitor):
 
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
-        ret_type = ctx.typeTypeOrVoid().getText()
         name = ctx.identifier().getText()
-        body = ctx.methodBody()
-        b_visit = RecVisitor().visit(body)
-        self.record(
-            name,
-            method_input=self.extract_text(ctx),
-            return_type=ret_type,
-            variables=list(b_visit.vars),
-            flows=self.mat_format(b_visit.matrix))
+        prog = RecVisitor().visit(ctx.methodBody())
+        self.record(name,
+                    method=self.extract_text(ctx),
+                    flows=self.mat_format(prog.matrix),
+                    variables=list(prog.vars))
 
 
 class RecVisitor(ExtVisitor):
@@ -183,6 +179,7 @@ class RecVisitor(ExtVisitor):
             elif op in ['+=', '-=', '*=', '/=', '&=', '|=',
                         '^=', '>>=', '>>>=', '<<=', '%=']:
                 logger.warning("TODO:", op)
+
         elif ctx.getChildCount() == 2:
             v1 = ctx.getChild(0).getText()
             v2 = ctx.getChild(1).getText()
