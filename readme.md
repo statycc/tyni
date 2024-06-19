@@ -26,8 +26,6 @@ NEXT: evaluate matrix data           ─ "evaluation phase"
 
 ### Usage
 
-Supported input languages (extendable):
-* Java (versions 7, 8, 11, and 17)
 
 1. Install dependencies
 
@@ -35,13 +33,16 @@ Supported input languages (extendable):
    pip install -r requirements.txt
    ```
 
-2. Run
+2. Run analyzer on input program
+
+   Supported input languages (extendable):
+    * Java (versions 7, 8, 11, and 17)
 
    ```
    python3 -m src [input program]
    ```
-   
-   for example
+
+   For example
 
    ```
    python3 -m src programs/IFCprog1/Program.java
