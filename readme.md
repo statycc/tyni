@@ -6,9 +6,9 @@ A static analyzer of non-interference.
 
 1. User specifies an input file, written in one of the supported input languages.
 2. The input is parsed into a parse-tree.
-3. The analysis runs over the parse tree and captures security-flow matrix data.
+3. The analysis processes the parse tree and captures security-flow matrix data.
 4. The result of previous step is written to a file (this is an intermediate result).
-5. TODO: the captured matrix data can be evaluated separately. 
+5. TODO: the captured matrix data is evaluated separately. 
 
 Same, but more visually
 
@@ -55,7 +55,7 @@ Supported input languages (extendable):
    
 ### Developer commands
 
-The analyzer expects high-level input language inputs (a .java file); 
+The analyzer expects high-level input language inputs, i.e., a .java file. 
 It is not necessary to compile the java programs 
 (but bytecodes may be interesting, so there are commands for it below).
 
@@ -63,15 +63,15 @@ It is also not necessary to rebuild the parser; it is already built.
 But it is easy to rebuild if necessary.
 
 ```
-make compile         -- compiles all java programs to bytcode (.class files)
-make bytecode        -- translate .class files to "readble bytecode"
+make compile         -- compiles all java programs to bytecode (.class files)
+make bytecode        -- translates .class files to "readble bytecode"
 make parser          -- compile parser from grammars
 make rebuild_parser  -- force recompilation of the parser
 make parse_test      -- try parse all programs
 make clean           -- remove generated files (except parser)
 ```
 
-### Notes and design choices
+### Notes about design choices
 
 * No optimizations are applied to the input program
 * All variables retain their original names
@@ -84,7 +84,7 @@ make clean           -- remove generated files (except parser)
   * See list of [grammars](https://github.com/antlr/grammars-v4) for interest
 * Everything done here should be doable in compiler IR
   * parse tree has more information than necessary; the analysis could do with less
-  * this analyzer design is light and isolated on purpose; but no reason so far why
+  * this analyzer design is light and isolated on purpose, but no reason so far why
     it could not take place inside a compiler.
     
 
