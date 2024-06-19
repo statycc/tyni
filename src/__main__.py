@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
-import sys
 import json
-import os
 import logging
+import os
+import sys
+from itertools import product
+
 from antlr4 import FileStream, CommonTokenStream
+
 from src import JavaLexer, JavaParser, JavaParserVisitor
 
 
@@ -63,6 +66,17 @@ class MethodVisitor(ExtVisitor):
     def record(self, n, **kwargs):
         self.result[n] = {**kwargs}
 
+    @staticmethod
+    def mat_format(mat):
+        return list(set(mat))
+
+    @staticmethod
+    def extract_text(ctx):
+        token_source = ctx.start.getTokenSource()
+        input_stream = token_source.inputStream
+        start, stop = ctx.start.start, ctx.stop.stop
+        return input_stream.getText(start, stop)
+
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
         ret_type = ctx.typeTypeOrVoid().getText()
@@ -71,20 +85,21 @@ class MethodVisitor(ExtVisitor):
         b_visit = RecVisitor().visit(body)
         self.record(
             name,
-            # 0: visitBlockStatement
-            # 1: method body -- it is not necessary to keep this
-            body=body.getChild(0).getChild(1).getText(),
-            ret_type=ret_type,
+            method_input=self.extract_text(ctx),
+            return_type=ret_type,
             variables=list(b_visit.vars),
-            matrix=b_visit.matrix)
+            flows=self.mat_format(b_visit.matrix))
 
 
 class RecVisitor(ExtVisitor):
     """Recursively process method body"""
 
-    def __init__(self, init_vars=None):
-        self.vars = init_vars or {}
-        self.matrix = {}
+    def __init__(self):
+        # all encountered variables
+        self.vars = {}
+        self.in_v = {}
+        self.out_v = {}
+        self.matrix = []
 
     @staticmethod
     def merge(target, *args):
@@ -94,80 +109,107 @@ class RecVisitor(ExtVisitor):
     def occurs(exp: JavaParser.ExpressionContext):
         return IdVisitor().visit(exp).vars
 
-    def in_vars(self):
-        return list(self.matrix.keys())
+    @staticmethod
+    def compose(m1, *args):
+        for m2 in args:
+            m1 = m1 + m2
+        return m1
 
-    def out_vars(self):
-        return list(self.matrix.values())
+    @staticmethod
+    def assign(in_v, out_v):
+        tmp = list(product(in_v, out_v))
+        return list(filter(lambda x: x[0] != x[1], tmp))
+
+    @staticmethod
+    def correction(occ, out):
+        return RecVisitor.assign(occ, out)
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
         super().visitMethodCall(ctx)
-        logger.error(f'(!) method call: {ctx.getText()}')
+        logger.warning(f'skipped method call: {ctx.getText()}')
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
         """Statement handlers, grammars/JavaParser.g4#L508"""
-        if ctx.blockLabel:
-            logger.debug(f'block: {ctx.getText()}')
-        elif ctx.ASSERT():
-            logger.debug(f'assert: {ctx.getText()}')
-        elif ctx.IF():
+        # if ctx.blockLabel:
+        #     logger.debug(f'block: {ctx.getText()}')
+        # elif ctx.ASSERT():
+        #     logger.debug(f'assert: {ctx.getText()}')
+        if ctx.IF():
             return self.__if(ctx)
-        elif ctx.FOR():
-            logger.debug(f'for loop: {ctx.getText()}')
+        # elif ctx.FOR():
+        #     logger.debug(f'for: {ctx.getText()}')
         elif ctx.WHILE():
             return self.__while(ctx)
-        elif ctx.DO():
-            logger.debug(f'do while loop: {ctx.getText()}')
-        elif ctx.TRY():
-            logger.debug(f'try block: {ctx.getText()}')
-        elif ctx.SWITCH():
-            logger.debug(f'switch: {ctx.getText()}')
-        elif ctx.SYNCHRONIZED():
-            logger.debug(f'sync: {ctx.getText()}')
-        elif ctx.RETURN():
-            logger.debug(f'return: {ctx.getText()}')
-        elif ctx.THROW():
-            logger.debug(f'throw: {ctx.getText()}')
-        elif ctx.BREAK():
-            logger.debug(f'break: {ctx.getText()}')
-        elif ctx.CONTINUE():
-            logger.debug(f'cont: {ctx.getText()}')
-        elif ctx.YIELD():
-            logger.debug(f'yield: {ctx.getText()}')
-        elif ctx.SEMI():
-            return self.__stmt_exp(ctx)
-        elif ctx.statementExpression:
-            return self.__stmt_exp(ctx)
-        elif ctx.switchExpression():
-            logger.debug(f'switch exp: {ctx.getText()}')
-        elif ctx.identifierLabel:
-            logger.debug(f'id label: {ctx.getText()}')
-        else:
-            logger.debug(f'(!) other: {ctx.getText()}')
+        # elif ctx.DO():
+        #     logger.debug(f'do while: {ctx.getText()}')
+        # elif ctx.TRY():
+        #     logger.debug(f'try: {ctx.getText()}')
+        # elif ctx.SWITCH():
+        #     logger.debug(f'switch: {ctx.getText()}')
+        # elif ctx.SYNCHRONIZED():
+        #     logger.debug(f'sync: {ctx.getText()}')
+        # elif ctx.RETURN():
+        #     logger.debug(f'return: {ctx.getText()}')
+        # elif ctx.THROW():
+        #     logger.debug(f'throw: {ctx.getText()}')
+        # elif ctx.BREAK():
+        #     logger.debug(f'break: {ctx.getText()}')
+        # elif ctx.CONTINUE():
+        #     logger.debug(f'cont: {ctx.getText()}')
+        # elif ctx.YIELD():
+        #     logger.debug(f'yield: {ctx.getText()}')
+        # elif ctx.SEMI():
+        #     logger.debug(f'semi: {ctx.getText()}')
+        # elif ctx.statementExpression:
+        #     logger.debug(f'stmt_exp: {ctx.getText()}')
+        # elif ctx.switchExpression():
+        #     logger.debug(f'switch_exp: {ctx.getText()}')
+        # elif ctx.identifierLabel:
+        #     logger.debug(f'id_label: {ctx.getText()}')
         super().visitStatement(ctx)
 
     def visitExpression(self, ctx: JavaParser.ExpressionContext):
         """Expressions, grammars/JavaParser.g4#L599"""
-        logger.debug(f'-- exp {ctx.getText()}')
-        super().visitExpression(ctx)
+        if ctx.getChildCount() == 3:
+            op = ctx.getChild(1).getText()
+            if op == '=':
+                out_v = IdVisitor().visit(ctx.getChild(0)).vars
+                in_v = IdVisitor().visit(ctx.getChild(2)).vars
+                self.merge(self.vars, out_v, in_v)
+                self.merge(self.in_v, in_v)
+                self.merge(self.out_v, out_v)
+                flows = self.assign(in_v, out_v)
+                self.matrix = self.compose(self.matrix, flows)
+            elif op in ['+=', '-=', '*=', '/=', '&=', '|=',
+                        '^=', '>>=', '>>>=', '<<=', '%=']:
+                logger.warning("TODO:", op)
+        elif ctx.getChildCount() == 2:
+            v1 = ctx.getChild(0).getText()
+            v2 = ctx.getChild(1).getText()
+            if v1 in ['++', '--'] or v2 in ['++', '--']:
+                in_v = out_v = IdVisitor().visit(ctx).vars
+                self.merge(self.vars, in_v)
+                self.merge(self.in_v, in_v)
+                self.merge(self.out_v, out_v)
+        else:
+            super().visitExpression(ctx)
 
-    def __stmt_exp(self, ctx: JavaParser.StatementContext):
-        for child in ctx.getChildren():
-            logger.debug(f'stmt exp ch: {child.getText()}')
-        super().visitStatement(ctx)
+    def corr_stmt(self, exp, body):
+        ex_vars = self.occurs(exp)
+        st_body = RecVisitor().visit(body)
+        cr_mat = self.correction(ex_vars, st_body.out_v)
+        self.matrix = self.compose(self.matrix, st_body.matrix, cr_mat)
+        self.merge(self.vars, ex_vars, st_body.vars)
+        self.merge(self.in_v, st_body.in_v)
+        self.merge(self.out_v, st_body.out_v)
 
     def __if(self, ctx: JavaParser.StatementContext):
-        ex_vars = self.occurs(ctx.getChild(1))
-        branch_t = RecVisitor().visit(ctx.getChild(2))
-        branch_f = RecVisitor()
-        if ctx.getChildCount() > 4:
-            branch_f.visit(ctx.getChild(4))
-        self.merge(self.vars, ex_vars, branch_t.vars, branch_f.vars)
+        self.corr_stmt(ctx.getChild(1), ctx.getChild(2))
+        if ctx.getChildCount() > 4:  # else branch
+            self.corr_stmt(ctx.getChild(1), ctx.getChild(4))
 
     def __while(self, ctx: JavaParser.StatementContext):
-        ex_vars = self.occurs(ctx.getChild(1))
-        loop_body = RecVisitor().visit(ctx.getChild(2))
-        self.merge(self.vars, ex_vars, loop_body.vars)
+        self.corr_stmt(ctx.getChild(1), ctx.getChild(2))
 
 
 def default_out(input_file: str) -> str:

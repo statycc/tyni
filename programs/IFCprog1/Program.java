@@ -6,12 +6,12 @@ public class Program {
         example(0, 1, 1);
     }
 
-    static protected int example(int x, int y, int z) {
+    static protected void example(int x, int y, int z) {
         if (z == 1) {
             if (x == 1) y = 1;
             else y = 0;
         } else x = y;
-//         System.out.println(x);
-//         System.out.println(y);
+        System.out.println(x);
+        System.out.println(y);
     }
 }
