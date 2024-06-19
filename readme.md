@@ -37,12 +37,11 @@ Overview
 
 ### Notes
 
-* The Java parser is generated with [ANTLR4](https://www.antlr.org/)
-  from the grammars under `grammars`.
-* With ANTLR, it is possible to add other front-end language(s) 
-  later with ~low overhead
-  * this will allow comparing with various previous works 
-  * see list of [grammars](https://github.com/antlr/grammars-v4)
 * No optimizations are applied to the input program
 * All variables have their original names
+* The Java parser is generated with [ANTLR4](https://www.antlr.org/) from the grammars under `grammars/`.
+* The above enables fast prototyping and adding front-end languages later with low overhead
+  * the goal is to allow comparing with previous works (but maintain implementation freedom about how that is done)
+  * see list of [grammars](https://github.com/antlr/grammars-v4) for details
+  * this approach is flexible to accommodate adding OOP concepts later
 * Everything done here should be doable in compiler IR
