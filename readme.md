@@ -39,9 +39,9 @@ Overview
 
 * No optimizations are applied to the input program
 * All variables have their original names
-* The Java parser is generated with [ANTLR4](https://www.antlr.org/) from the grammars under `grammars/`.
-* The above enables fast prototyping and adding front-end languages later with low overhead
-  * the goal is to allow comparing with previous works (but maintain implementation freedom about how that is done)
-  * see list of [grammars](https://github.com/antlr/grammars-v4) for details
-  * this approach is flexible to accommodate adding OOP concepts later
+* The Java parser is generated with [ANTLR](https://www.antlr.org/) (v4) from the grammars under `grammars/`.
+* Using ANTLR enables fast prototyping and adding front-end languages later with low overhead
+  * This allows comparing with previous works (but maintains implementation freedom)
+  * See list of [grammars](https://github.com/antlr/grammars-v4) for details
+  * Adding OOP concepts later should be straightforward (technically)
 * Everything done here should be doable in compiler IR
