@@ -7,12 +7,12 @@ Supported input languages:
 
 Overview
 
-1. The analyzer parses the input.
-2. While parsing, it captures e.g., security-flow matrix data.
+1. Parse the input.
+2. While parsing, the analysis captures security-flow matrix data.
 3. The result of previous step is written to a file (this is an intermediate result).
 4. TODO: the matrix data can be evaluated separately. 
 
-**Usage**
+### Usage
 
 1. Install dependencies
 
@@ -33,3 +33,16 @@ Overview
    ```
    
    The result will be saved to file.
+
+
+### Notes
+
+* The Java parser is generated with [ANTLR4](https://www.antlr.org/)
+  from the grammars under `grammars`.
+* With ANTLR, it is possible to add other front-end language(s) 
+  later with ~low overhead
+  * this will allow comparing with various previous works 
+  * see list of [grammars](https://github.com/antlr/grammars-v4)
+* No optimizations are applied to the input program
+* All variables have their original names
+* Everything done here should be doable in compiler IR
