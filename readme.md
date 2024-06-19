@@ -47,6 +47,7 @@ make bytecode        -- transpate the above to "readble bytecode" for inspection
 make parser          -- compile parser from grammars
 make rebuild_parser  -- forces recompile of the parser
 make parse_test      -- try parse all programs
+make clean           -- remove generated files (except parser)
 ```
 
 ### Notes
