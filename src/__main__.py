@@ -221,6 +221,7 @@ def save_result(file_name: str, content: dict):
         os.makedirs(dir_path)
     with open(file_name, "w") as outfile:
         json.dump(content, outfile, indent=4)
+    logger.info(f'Wrote result to: {file_name}')
 
 
 if __name__ == '__main__':
