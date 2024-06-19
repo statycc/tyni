@@ -23,23 +23,36 @@ def main():
         'v' * 2: logging.WARNING,
         'v' * 3: logging.INFO,
         'v' * 4: logging.DEBUG}
-    logger_ = __logger_setup(log_levels[args.log_level])
+    logger = __logger_setup(log_levels[args.log_level])
 
     # noinspection PyPep8Naming
-    AnalyzerClass = __get_analyzer(args.input)
+    AnalyzerClass = __choose_analyzer(args.input)
     if AnalyzerClass is None:
-        logger_.fatal('No supported analyzer')
+        logger.fatal('No supported analyzer')
         sys.exit(1)
+    logger.debug(f'Using {AnalyzerClass.__name__}')
+
     analyzer = AnalyzerClass(args.input, args.out)
-    logger_.debug(f'Using {analyzer.__class__.__name__}')
     parsed = analyzer.parse()
     args.parse or parsed.analyze()
 
 
-def __get_analyzer(input_file: str) -> Optional[Type[AbstractAnalyzer]]:
+def __choose_analyzer(input_file: str) -> Optional[Type[AbstractAnalyzer]]:
     if JavaAnalyzer.lang_match(input_file):
         return JavaAnalyzer
     return None
+
+
+def __logger_setup(level: int) -> logging.Logger:
+    root_log = logging.getLogger(prog_name)
+    root_log.setLevel(level)
+    extras = " %(module)s" if level == logging.DEBUG else ""
+    fmt = f"[%(asctime)s] %(levelname)s{extras}: %(message)s"
+    formatter = logging.Formatter(fmt, datefmt="%H:%M:%S")
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    root_log.addHandler(stream_handler)
+    return root_log
 
 
 def __parse_args(parser: ArgumentParser) -> Namespace:
@@ -74,18 +87,6 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         version="%(prog)s " + __version__,
     )
     return parser.parse_args(None)
-
-
-def __logger_setup(level: int) -> logging.Logger:
-    fmt = "[%(asctime)s] %(levelname)s (%(module)s): %(message)s"
-    formatter = logging.Formatter(fmt, datefmt="%H:%M:%S")
-    logger = logging.getLogger(prog_name)
-    logger.setLevel(level)
-
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
-    return logger
 
 
 if __name__ == '__main__':

@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import logging
 import operator
 import sys
 from functools import reduce
 from itertools import product
+from typing import Type
 
 from antlr4 import FileStream, CommonTokenStream
 
@@ -20,7 +23,8 @@ class JavaAnalyzer(AbstractAnalyzer):
     def lang_match(f_name: str) -> bool:
         return f_name and f_name.endswith('.java')
 
-    def parse(self, exit_on_error: bool = False):
+    def parse(self, exit_on_error: bool = False) -> JavaAnalyzer:
+        logger.debug(f'parsing {self.input_file}')
         input_stream = FileStream(self.input_file)
         lexer = JavaLexer(input_stream)
         stream = CommonTokenStream(lexer)
@@ -80,7 +84,7 @@ class MethodVisitor(ExtVisitor):
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
         name = ctx.identifier().getText()
-        logger.debug(f'analyzing method: {name}')
+        logger.debug(f'analyzing method {name}')
         prog = RecVisitor().visit(ctx.methodBody())
         self.record(name,
                     method=self.extract_text(ctx),
