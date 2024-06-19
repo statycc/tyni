@@ -12,6 +12,9 @@ build: $(GRAMMAR)
 	-Xexact-output-dir \
 	-o $(OUT)
 
-clean:
+rebuild:
 	rm -rf $(OUT)
+	make build
+
+clean:
 	rm -rf output
