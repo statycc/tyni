@@ -3,8 +3,23 @@
 import sys
 import json
 import os
+import logging
 from antlr4 import FileStream, CommonTokenStream
 from src import JavaLexer, JavaParser, JavaParserVisitor
+
+
+def setup_logger(logger_id, level: int = logging.DEBUG):
+    fmt = "[%(asctime)s] %(levelname)s: %(message)s"
+    formatter = logging.Formatter(fmt, datefmt="%H:%M:%S")
+    logger_ = logging.getLogger(logger_id)
+    logger_.setLevel(level)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger_.addHandler(stream_handler)
+    return logger_
+
+
+logger = setup_logger(__name__)
 
 
 def analyze(input_file, out_file):
@@ -13,7 +28,7 @@ def analyze(input_file, out_file):
     stream = CommonTokenStream(lexer)
     parser = JavaParser(stream)
     if parser.getNumberOfSyntaxErrors() > 0:
-        print("syntax errors")
+        logger.error("syntax errors")
     else:
         tree = parser.compilationUnit()
         methods = MethodVisitor().visit(tree)
@@ -87,72 +102,72 @@ class RecVisitor(ExtVisitor):
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
         super().visitMethodCall(ctx)
-        print('(!) method call:', ctx.getText())
+        logger.error(f'(!) method call: {ctx.getText()}')
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
-        """Statement handlers; see grammars/JavaParser.g4 L#508."""
+        """Statement handlers, grammars/JavaParser.g4#L508"""
         if ctx.blockLabel:
-            print('block:', ctx.getText())
+            logger.debug(f'block: {ctx.getText()}')
         elif ctx.ASSERT():
-            print('assert:', ctx.getText())
+            logger.debug(f'assert: {ctx.getText()}')
         elif ctx.IF():
             return self.__if(ctx)
         elif ctx.FOR():
-            print('for loop:', ctx.getText())
+            logger.debug(f'for loop: {ctx.getText()}')
         elif ctx.WHILE():
             return self.__while(ctx)
         elif ctx.DO():
-            print('do while loop:', ctx.getText())
+            logger.debug(f'do while loop: {ctx.getText()}')
         elif ctx.TRY():
-            print('try block:', ctx.getText())
+            logger.debug(f'try block: {ctx.getText()}')
         elif ctx.SWITCH():
-            print('switch:', ctx.getText())
+            logger.debug(f'switch: {ctx.getText()}')
         elif ctx.SYNCHRONIZED():
-            print('sync:', ctx.getText())
+            logger.debug(f'sync: {ctx.getText()}')
         elif ctx.RETURN():
-            print('return:', ctx.getText())
+            logger.debug(f'return: {ctx.getText()}')
         elif ctx.THROW():
-            print('throw:', ctx.getText())
+            logger.debug(f'throw: {ctx.getText()}')
         elif ctx.BREAK():
-            print('break:', ctx.getText())
+            logger.debug(f'break: {ctx.getText()}')
         elif ctx.CONTINUE():
-            print('cont:', ctx.getText())
+            logger.debug(f'cont: {ctx.getText()}')
         elif ctx.YIELD():
-            print('yield:', ctx.getText())
+            logger.debug(f'yield: {ctx.getText()}')
         elif ctx.SEMI():
             return self.__stmt_exp(ctx)
         elif ctx.statementExpression:
             return self.__stmt_exp(ctx)
         elif ctx.switchExpression():
-            print('switch exp:', ctx.getText())
+            logger.debug(f'switch exp: {ctx.getText()}')
         elif ctx.identifierLabel:
-            print('id label:', ctx.getText())
+            logger.debug(f'id label: {ctx.getText()}')
         else:
-            print('(!) other:', ctx.getText())
+            logger.debug(f'(!) other: {ctx.getText()}')
         super().visitStatement(ctx)
 
     def visitExpression(self, ctx: JavaParser.ExpressionContext):
+        """Expressions, grammars/JavaParser.g4#L599"""
+        logger.debug(f'-- exp {ctx.getText()}')
         super().visitExpression(ctx)
-        print("exp", ctx.getText())
 
     def __stmt_exp(self, ctx: JavaParser.StatementContext):
-        print('stmt exp --', ctx.getText())
+        for child in ctx.getChildren():
+            logger.debug(f'stmt exp ch: {child.getText()}')
         super().visitStatement(ctx)
 
     def __if(self, ctx: JavaParser.StatementContext):
-        exp, tb = ctx.getChild(1), ctx.getChild(2)
-        exv, fbv = self.occurs(exp), RecVisitor()
-        tbv = RecVisitor().visit(tb)
+        ex_vars = self.occurs(ctx.getChild(1))
+        branch_t = RecVisitor().visit(ctx.getChild(2))
+        branch_f = RecVisitor()
         if ctx.getChildCount() > 4:
-            fb = ctx.getChild(4)
-            fbv.visit(fb)
-        self.merge(self.vars, exv, tbv.vars, fbv.vars)
+            branch_f.visit(ctx.getChild(4))
+        self.merge(self.vars, ex_vars, branch_t.vars, branch_f.vars)
 
     def __while(self, ctx: JavaParser.StatementContext):
-        exp, body = ctx.getChild(1), ctx.getChild(2)
-        ex_vars = self.occurs(exp)
-        RecVisitor().visit(body)
-        self.merge(self.vars, ex_vars)
+        ex_vars = self.occurs(ctx.getChild(1))
+        loop_body = RecVisitor().visit(ctx.getChild(2))
+        self.merge(self.vars, ex_vars, loop_body.vars)
 
 
 def default_out(input_file: str) -> str:

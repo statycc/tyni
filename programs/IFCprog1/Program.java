@@ -2,9 +2,9 @@ package IFCprog1;
 
 public class Program {
 
-//     public static void main(String[] args) {
-//         example(0, 1, 1);
-//     }
+    public static void main(String[] args) {
+        example(0, 1, 1);
+    }
 
     static protected int example(int x, int y, int z) {
         if (z == 1) {
