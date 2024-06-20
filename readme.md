@@ -65,6 +65,8 @@ make help   : other available commands
 
 Notes
 
+* Running these commands assumes dev requirements are installed.
+
 * The analyzer expects input in high-level input language, i.e., 
   a `.java` file. It is not necessary to compile the java programs.
   But bytecode may be interesting, so there are commands to generate 
