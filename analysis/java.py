@@ -213,8 +213,9 @@ class RecVisitor(ExtVisitor):
         elif ctx.getChildCount() == 2:
             v1 = ctx.getChild(0).getText()
             v2 = ctx.getChild(1).getText()
-            if v1 in ["++", "--"] or v2 in ["++", "--"]:
-                in_l, out_v = self.in_out_vars(ctx.getChild(0))
+            if idx := 0 if v1 not in ["++", "--"] else \
+                    1 if v2 not in ["++", "--"] else None:
+                in_l, out_v = self.in_out_vars(ctx.getChild(idx))
                 self.merge(self.vars, out_v, in_l)
                 self.merge(self.out_v, out_v)
                 flows = self.assign(in_l, out_v)
