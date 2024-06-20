@@ -171,19 +171,19 @@ class RecVisitor(ExtVisitor):
         """Expressions, grammars/JavaParser.g4#L599"""
         if ctx.getChildCount() == 3:
             op = ctx.getChild(1).getText()
-            # in compound case, an out-var is also an in-variable,
-            # but we don't care about that relationship.
-            if op in ['=', '+=', '-=', '*=', '/=', '%=']:
-                # TODO: refine, left-hand could be an array
+            # Identify assignment by operator
+            # https://docs.oracle.com/javase/tutorial/java/nutsandbolts/operators.html
+            # for compound operators, an out-variable is also an
+            # in-variable, but it is irrelevant for this analysis.
+            if op in ['=', '+=', '-=', '*=', '/=', '%=', '&=',
+                      '|=', '^=', '>>=', '>>>=', '<<=']:
+                # TODO: refine: left-hand could be an array
                 out_v = IdVisitor().visit(ctx.getChild(0)).vars
                 in_v = IdVisitor().visit(ctx.getChild(2)).vars
                 self.merge(self.vars, out_v, in_v)
                 self.merge(self.out_v, out_v)
                 flows = self.assign(in_v, out_v)
                 self.matrix = self.compose(self.matrix, flows)
-
-            elif op in ['&=', '|=', '^=', '>>=', '>>>=', '<<=', ]:
-                logger.warning("TODO:", op)
 
         elif ctx.getChildCount() == 2:
             v1 = ctx.getChild(0).getText()
