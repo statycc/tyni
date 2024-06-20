@@ -15,16 +15,37 @@ Same, but more visually
 ```
 input.java                           ┐
 ---> parser                          │
----> parse-tree                      ├─ "analysis phase"
+---> parse-tree                      ├─ analysis phase
 ---> analyze tree(*)                 │  
 ---> get matrix data                 │
----> write data to file              ┘
+---> write data to input.json        ┘
 
-NEXT: evaluate matrix data           ─ "evaluation phase"  
+input.json                           ┐
+---> evaluate matrix data            ├─ evaluation phase
+---> TODO...                         ┘  
 ```
 
-`(*)` is the current active work area; to improve analysis of the tree and handle more (accurately) statements and expressions.
+`(*)` the current active area; to improve analysis of the tree and handle more (accurately) statements and expressions.
 
+The data captured by the analysis includes:
+
+```
+ "input_prog"        // input file path; the analyzed program
+ "result"            // analysis outcome for each method in the class 
+   "identifier"      // method name #1
+     "method"        // the raw source code (for reference) 
+     "flows"         // violating variable pairs as [in, out]
+     "variables"     // encountered variables, see note below 
+   "identifier2"     // method name #2 ...
+     ... 
+```
+
+The variables list is not necessary complete. 
+It will not include variables that occur only in "uninteresting" statements (e.g., an unused declaration would not show up in this list). 
+These uninteresting cases are outside the scope of the analysis syntax anyway.
+
+This output structure also assumes 1 class/input file, which is a normal assumption for Java, but not other languages.
+A better file structure would be result > class name > methods.
 
 ### Usage
 
@@ -54,6 +75,22 @@ NEXT: evaluate matrix data           ─ "evaluation phase"
    ```
    python3 -m src
    ```
+
+### Repository organization
+
+```
+.
+├─ grammars/               # specs for recognized inputs
+├─ programs/               # example programs to analyze
+├─ src                     # source code
+│  ├─ parser/              # generated parser for grammars
+│  └─ *                    # analyzer implementation
+├─ Makefile                # helpful commands
+├─ readme.md               # instructions
+├─ requirements.txt        # Python dependencies 
+├─ requirements-dev.txt    # development dependencies
+└─ setup.sh                # automation script for dev setup  
+```
    
 ### Developer commands
 

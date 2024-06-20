@@ -40,6 +40,7 @@ class JavaAnalyzer(AbstractAnalyzer):
         assert self.tree
         result = MethodVisitor().visit(self.tree).result
         self.save(result)
+        return result
 
 
 class ExtVisitor(JavaParserVisitor):
@@ -133,8 +134,8 @@ class RecVisitor(ExtVisitor):
         #     logger.debug(f'assert: {ctx.getText()}')
         if ctx.IF():
             return self.__if(ctx)
-        # elif ctx.FOR():
-        #     logger.debug(f'for: {ctx.getText()}')
+        elif ctx.FOR():
+            return self.__for(ctx)
         elif ctx.WHILE():
             return self.__while(ctx)
         # elif ctx.DO():
@@ -169,29 +170,45 @@ class RecVisitor(ExtVisitor):
         """Expressions, grammars/JavaParser.g4#L599"""
         if ctx.getChildCount() == 3:
             op = ctx.getChild(1).getText()
-            # Identify assignment by operator
-            # https://docs.oracle.com/javase/tutorial/java/nutsandbolts/operators.html
-            # for compound operators, an out-variable is also an
-            # in-variable, but it is irrelevant for this analysis.
+            # Identify assignment from operator form
+            # if compound, out-variable is also an in-variable,
+            # but such data flow is irrelevant for this analysis.
             if op in ['=', '+=', '-=', '*=', '/=', '%=', '&=',
                       '|=', '^=', '>>=', '>>>=', '<<=']:
-                # TODO: refine: left-hand could be an array
-                out_v = IdVisitor().visit(ctx.getChild(0)).vars
-                in_v = IdVisitor().visit(ctx.getChild(2)).vars
-                self.merge(self.vars, out_v, in_v)
+                in_l, out_v = self.in_out_vars(ctx.getChild(0))
+                in_v = self.in_vars(ctx.getChild(2))
+                self.merge(self.vars, out_v, in_v, in_l)
                 self.merge(self.out_v, out_v)
-                flows = self.assign(in_v, out_v)
-                self.matrix = self.compose(self.matrix, flows)
+                fl1 = self.assign(in_v, out_v)
+                fl2 = self.assign(in_l, out_v)
+                self.matrix = self.compose(self.matrix, fl1, fl2)
 
         elif ctx.getChildCount() == 2:
             v1 = ctx.getChild(0).getText()
             v2 = ctx.getChild(1).getText()
-            if v1 in ['++', '--'] or v2 in ['++', '--']:
-                in_v = out_v = IdVisitor().visit(ctx).vars
-                self.merge(self.vars, in_v)
+            if v1 in ["++", "--"] or v2 in ["++", "--"]:
+                in_l, out_v = self.in_out_vars(ctx.getChild(0))
+                self.merge(self.vars, out_v, in_l)
                 self.merge(self.out_v, out_v)
+                flows = self.assign(in_l, out_v)
+                self.matrix = self.compose(self.matrix, flows)
         else:
             super().visitExpression(ctx)
+
+    @staticmethod
+    def in_out_vars(ctx: JavaParser.ExpressionContext):
+        all_vars = IdVisitor().visit(ctx).vars
+        if len(all_vars) <= 1:
+            return {}, all_vars
+        # TODO: out exp with multiple variables
+        #   is it always the case that left-most is out, rest are in?
+        logger.debug(f"exp/L: {ctx.getText()} {ctx.getChildCount()}")
+        logger.debug(f"exp/L: {ctx.getChild(0).getChildCount()}")
+        return {}, {}
+
+    @staticmethod
+    def in_vars(ctx: JavaParser.ExpressionContext):
+        return IdVisitor().visit(ctx).vars
 
     def corr_stmt(self, exp, body):
         ex_vars = self.occurs(exp)
@@ -200,6 +217,9 @@ class RecVisitor(ExtVisitor):
         self.matrix = self.compose(self.matrix, st_body.matrix, cr_mat)
         self.merge(self.vars, ex_vars, st_body.vars)
         self.merge(self.out_v, st_body.out_v)
+
+    def __for(self, ctx: JavaParser.StatementContext):
+        self.corr_stmt(ctx.getChild(2), ctx.getChild(4))
 
     def __if(self, ctx: JavaParser.StatementContext):
         self.corr_stmt(ctx.getChild(1), ctx.getChild(2))

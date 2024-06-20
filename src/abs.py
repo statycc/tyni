@@ -26,7 +26,7 @@ class AbstractAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def analyze(self) -> None:
+    def analyze(self) -> dict:
         """analyzes input file"""
         pass
 
