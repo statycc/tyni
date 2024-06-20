@@ -1,7 +1,7 @@
 all: parse_test
 
 help:
-	@echo "parse_test  ─ try parse all programs"
+	@echo "ptest       ─ try parse all programs"
 	@echo "bytecode    ─ translate .class files to readable bytecode"
 	@echo "compile     ─ compile java programs to bytecode (.class)"
 	@echo "parser      ─ build a parser from grammars"
@@ -36,7 +36,7 @@ parser: $(GRAMMAR)
 rebuild:
 	rm -rf $(OUT) && make parser
 
-parse_test:
+ptest:
 	@$(foreach p, $(PROGS), \
 		echo "PARSE $(p)" && python3 -m src $(P_DIR)/$(p)/$(PNAME).java --parse -l 0 ; )
 

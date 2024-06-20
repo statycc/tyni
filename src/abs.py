@@ -21,10 +21,9 @@ class AbstractAnalyzer(ABC):
         return False
 
     @abstractmethod
-    def parse(self, exit_on_error: bool = False) -> AbstractAnalyzer:
+    def parse(self) -> AbstractAnalyzer:
         """parses input file"""
         pass
-
 
     @abstractmethod
     def analyze(self) -> None:

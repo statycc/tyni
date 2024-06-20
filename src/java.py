@@ -23,7 +23,7 @@ class JavaAnalyzer(AbstractAnalyzer):
     def lang_match(f_name: str) -> bool:
         return f_name and f_name.endswith('.java')
 
-    def parse(self, exit_on_error: bool = False) -> JavaAnalyzer:
+    def parse(self) -> JavaAnalyzer:
         logger.debug(f'parsing {self.input_file}')
         input_stream = FileStream(
             self.input_file, encoding="UTF-8")
@@ -31,11 +31,9 @@ class JavaAnalyzer(AbstractAnalyzer):
         stream = CommonTokenStream(lexer)
         parser = JavaParser(stream)
         if parser.getNumberOfSyntaxErrors() > 0:
-            logger.error("syntax errors")
-            not exit_on_error or sys.exit(1)
-        else:
-            logger.debug("parsed successfully")
-            self.tree = parser.compilationUnit()
+            return sys.exit(1)
+        logger.debug("parsed successfully")
+        self.tree = parser.compilationUnit()
         return self
 
     def analyze(self):
