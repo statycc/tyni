@@ -1,3 +1,6 @@
 -r requirements.txt
 
 antlr4-tools
+pytest
+pytest-cov
+pytest-mock

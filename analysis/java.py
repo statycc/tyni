@@ -10,7 +10,7 @@ from pprint import pprint
 
 from antlr4 import FileStream, CommonTokenStream
 
-from analysis import AbstractAnalyzer
+from analysis import AbstractAnalyzer, ClassResult, MethodResult
 from analysis.parser.JavaLexer import JavaLexer
 from analysis.parser.JavaParser import JavaParser
 from analysis.parser.JavaParserVisitor import JavaParserVisitor
@@ -37,13 +37,13 @@ class JavaAnalyzer(AbstractAnalyzer):
         self.tree = parser.compilationUnit()
         return self
 
-    def analyze(self):
+    def run(self):
         assert self.tree
         result = ClassVisitor().visit(self.tree).result
         if self.out_file:
             self.save(result)
         else:
-            pprint(result)
+            self.pretty_print(result)
         return result
 
 
@@ -69,13 +69,13 @@ class ClassVisitor(ExtVisitor):
     """Visits each class (possibly nested) and its methods."""
 
     def __init__(self, parent: ClassVisitor = None):
-        self.parent = parent
-        self.name = None
-        self.result = {}
+        self.parent: ClassVisitor = parent
+        self.result: dict = {}
+        self.name: str = None
 
     def hierarchy(self, name):
-        return name if not (self.parent and self.parent.name) else (
-            '.'.join([self.parent.name, name]))
+        return name if not (self.parent and self.parent.name) \
+            else ('.'.join([self.parent.name, name]))
 
     @property
     def root(self):
@@ -85,8 +85,8 @@ class ClassVisitor(ExtVisitor):
         return top
 
     @staticmethod
-    def record(node, n, **kwargs):
-        node.result[n] = {**kwargs}
+    def record(node, n, data):
+        node.result[n] = data
 
     @staticmethod
     def mat_format(mat):
@@ -105,7 +105,7 @@ class ClassVisitor(ExtVisitor):
         body = ctx.getChild(ctx.getChildCount() - 1)
         logger.debug(f'analyzing class {self.name}')
         result = ClassVisitor(parent=self).visit(body).result
-        self.record(self.root, self.name, **result)
+        self.record(self.root, self.name, ClassResult(self.name, result))
 
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
@@ -113,10 +113,10 @@ class ClassVisitor(ExtVisitor):
         logger.debug(f'analyzing method {name}')
         prog = RecVisitor().visit(ctx.methodBody())
         # noinspection PyTypeChecker
-        self.record(self, name,
-                    method=self.extract_text(ctx),
-                    flows=self.mat_format(prog.matrix),
-                    variables=list(prog.vars))
+        self.record(self, name, MethodResult(
+            name, self.extract_text(ctx),
+            self.mat_format(prog.matrix),
+            prog.vars))
 
 
 class RecVisitor(ExtVisitor):

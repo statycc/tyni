@@ -26,9 +26,8 @@ def main():
         sys.exit(1)
     logger.debug(f'Using {AnalyzerClass.__name__}')
 
-    analyzer = AnalyzerClass(args.input, args.out)
-    parsed = analyzer.parse()
-    args.parse or parsed.analyze()
+    analyzer = AnalyzerClass(args.input, args.out).parse()
+    args.parse or analyzer.run()
 
 
 def __choose_analyzer(input_file: str) -> Optional[Type[AbstractAnalyzer]]:
