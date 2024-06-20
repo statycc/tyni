@@ -38,7 +38,7 @@ class JavaAnalyzer(AbstractAnalyzer):
 
     def analyze(self):
         assert self.tree
-        result = MethodVisitor().visit(self.tree).result
+        result = ClassVisitor().visit(self.tree).result
         self.save(result)
         return result
 
@@ -61,14 +61,28 @@ class IdVisitor(ExtVisitor):
         self.vars[name] = name
 
 
-class MethodVisitor(ExtVisitor):
-    """Visits each class method"""
+class ClassVisitor(ExtVisitor):
+    """Visits each class (possibly nested) and its methods."""
 
-    def __init__(self):
+    def __init__(self, parent: ClassVisitor = None):
+        self.parent = parent
+        self.name = None
         self.result = {}
 
-    def record(self, n, **kwargs):
-        self.result[n] = {**kwargs}
+    def hierarchy(self, name):
+        return name if not (self.parent and self.parent.name) else (
+            '.'.join([self.parent.name, name]))
+
+    @property
+    def root(self):
+        top = self
+        while top.parent:
+            top = top.parent
+        return top
+
+    @staticmethod
+    def record(node, n, **kwargs):
+        node.result[n] = {**kwargs}
 
     @staticmethod
     def mat_format(mat):
@@ -81,12 +95,21 @@ class MethodVisitor(ExtVisitor):
         start, stop = ctx.start.start, ctx.stop.stop
         return input_stream.getText(start, stop)
 
+    def visitClassDeclaration(
+            self, ctx: JavaParser.ClassDeclarationContext):
+        self.name = self.hierarchy(ctx.identifier().getText())
+        body = ctx.getChild(ctx.getChildCount() - 1)
+        logger.debug(f'analyzing class {self.name}')
+        result = ClassVisitor(parent=self).visit(body).result
+        self.record(self.root, self.name, **result)
+
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
         name = ctx.identifier().getText()
         logger.debug(f'analyzing method {name}')
         prog = RecVisitor().visit(ctx.methodBody())
-        self.record(name,
+        # noinspection PyTypeChecker
+        self.record(self, name,
                     method=self.extract_text(ctx),
                     flows=self.mat_format(prog.matrix),
                     variables=list(prog.vars))

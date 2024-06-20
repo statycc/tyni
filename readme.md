@@ -4,48 +4,47 @@ A static analyzer implementing our information flow calculus (work in progress).
 
 ### How it works
 
-1. User specifies an input file, in one of the supported input languages.
+1. User specifies an input file.
 2. The input is parsed into a parse-tree.
 3. The analysis processes the parse tree and captures security-flow matrix data.
-4. The result of previous step is written to a file (this is an intermediate result).
-5. the captured matrix data is evaluated separately. 
+4. The result of the previous step is written to a file (an intermediate result).
+5. the captured matrix data is evaluated (separately). 
 
-Same, but more visually, in two steps
+Same, but more visually, in two steps:
 
 ```
 [input].java                         ┐
 ---> parser                          │
----> parse-tree                      ├─ analysis phase (*)
+---> parse-tree                      ├─ analysis phase (* in progress)
 ---> analyze tree                    │  
 ---> gather matrix data              │
 ---> write data to [input].json      ┘
 
 [input].json                         ┐
 ---> evaluate matrix data            ├─ evaluation phase [TODO]
----> interesting infromation         ┘  
+---> get interesting infromation     ┘  
 ```
-
-`(*)` the current active area; to improve analysis of the tree and handle more (accurately) statements and expressions.
 
 The data captured in the analysis phase includes:
 
 ```
- "input_prog"        // the analyzed program
- "result"            // analysis outcomes 
-   "identifier"      // method name #1
-     "method"        // method source code (for reference) 
-     "flows"         // violating variable pairs [in, out]
-     "variables"     // encountered variables, see note below 
-   "identifier2"     // method name #2 ...
-     ... 
+ "input_prog"          // the analyzed program (file path)
+ "result"              // analysis outcomes 
+   "class_name"        // possibly nested, with dot operator
+     "identifier"      // method name #1
+       "method"        // method source code (for reference) 
+       "flows"         // violating variable pairs [in, out]
+       "variables"     // encountered variables, see note below 
+     "identifier"      // method name #2 
+       ...             // method data
+   "class_name"        // another class (if any)
+     ...               // class data
 ```
 
-The variables list is not necessary complete. 
-It will not include variables that occur only in "uninteresting" statements (e.g., an unused declaration would not show up in this list). 
-These uninteresting cases are outside the scope of the analysis syntax anyway.
-
-This output structure also assumes 1 class/input file, which is a normal assumption for Java, but not for other languages.
-A better file structure would be result > class name > methods.
+The variables list is not always complete. 
+It will not include variables that occur only in "uninteresting" statements, e.g., an unused declaration would not show up in variables. 
+This is because the analysis proceed by looking at specific statements in the program -- those that belong to the analysis syntax, like loops and conditionals -- and skips others.
+The variables list contains all variables that occurred in the handled statements.
 
 ### Usage
 
