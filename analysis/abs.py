@@ -73,7 +73,7 @@ class AbstractAnalyzer(ABC):
         Arguments:
             input_file: program file path.
             out_dir: path to output directory [default:output].
-            path_depth: number of parent directories to include [default:3].
+            path_depth: number of directories to include [default:3].
 
         Returns:
             The generated file name.
@@ -97,6 +97,7 @@ class ResultObj(dict):
 
 class ClassResult(ResultObj):
     def __init__(self, name: str, methods: dict[MethodResult]):
+        super().__init__()
         self.name = name
         self.methods = list(methods.keys())
         for (k, v) in methods.items():
@@ -111,10 +112,9 @@ class ClassResult(ResultObj):
 
 
 class MethodResult(ResultObj):
-    def __init__(
-            self, name: str, source: str,
-            flows: list[list[str]], variables: dict[str, str]
-    ):
+    def __init__(self, name: str, source: str, flows: list[list[str]],
+                 variables: dict[str, str]):
+        super().__init__()
         self.name = name
         super().__setitem__('variables', list(variables))
         super().__setitem__('source', source)
@@ -131,11 +131,11 @@ class MethodResult(ResultObj):
 
     def __str__(self):
         code = self.__getitem__("source")
-        vars = self.joiner("variables")
+        vars_ = self.joiner("variables")
         flows = self.joiner("flows", self.flow_fmt)
         m_name = self.coloring(self.name)
         return (f'Method: {m_name}\n{code}\n'
-                f'  Vars: {vars}\n Flows: {flows}')
+                f'  Vars: {vars_}\n Flows: {flows}')
 
 
 # noinspection PyClassHasNoInit,PyPep8Naming
