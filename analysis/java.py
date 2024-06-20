@@ -10,7 +10,8 @@ from pprint import pprint
 
 from antlr4 import FileStream, CommonTokenStream
 
-from analysis import AbstractAnalyzer, ClassResult, MethodResult
+from analysis import \
+    AbstractAnalyzer, ClassResult, MethodResult, bcolors
 from analysis.parser.JavaLexer import JavaLexer
 from analysis.parser.JavaParser import JavaParser
 from analysis.parser.JavaParserVisitor import JavaParserVisitor
@@ -52,6 +53,12 @@ class ExtVisitor(JavaParserVisitor):
         super().visit(tree)
         return self
 
+    @staticmethod
+    def wclr(s: str, desc: str = ""):
+        desc_ = f" {desc}" if desc else ""
+        logger.warning(f'unhandled{desc_} '
+                       f'{bcolors.WARNING}{s}{bcolors.ENDC}')
+
 
 class IdVisitor(ExtVisitor):
     """Finds identifiers in a parse tree"""
@@ -71,7 +78,7 @@ class ClassVisitor(ExtVisitor):
     def __init__(self, parent: ClassVisitor = None):
         self.parent: ClassVisitor = parent
         self.result: dict = {}
-        self.name: str = None
+        self.name: str = ''
 
     def hierarchy(self, name):
         return name if not (self.parent and self.parent.name) \
@@ -103,14 +110,15 @@ class ClassVisitor(ExtVisitor):
             self, ctx: JavaParser.ClassDeclarationContext):
         self.name = self.hierarchy(ctx.identifier().getText())
         body = ctx.getChild(ctx.getChildCount() - 1)
-        logger.debug(f'analyzing class {self.name}')
+        logger.debug(f'class: {self.name}')
         result = ClassVisitor(parent=self).visit(body).result
-        self.record(self.root, self.name, ClassResult(self.name, result))
+        self.record(self.root, self.name,
+                    ClassResult(self.name, result))
 
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
         name = ctx.identifier().getText()
-        logger.debug(f'analyzing method {name}')
+        logger.debug(f'method: {name}')
         prog = RecVisitor().visit(ctx.methodBody())
         # noinspection PyTypeChecker
         self.record(self, name, MethodResult(
@@ -151,7 +159,12 @@ class RecVisitor(ExtVisitor):
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
         super().visitMethodCall(ctx)
-        logger.warning(f'unhandled method call: {ctx.getText()}')
+        self.wclr(ctx.getText(), 'method call')
+
+    def visitVariableDeclarator(
+            self, ctx: JavaParser.VariableDeclaratorContext):
+        super().visitVariableDeclarator(ctx)
+        self.wclr(ctx.getText(), 'var decl')
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
         """Statement handlers, grammars/JavaParser.g4#L508"""
@@ -202,6 +215,7 @@ class RecVisitor(ExtVisitor):
             # but such data flow is irrelevant for this analysis.
             if op in ['=', '+=', '-=', '*=', '/=', '%=', '&=',
                       '|=', '^=', '>>=', '>>>=', '<<=']:
+                logger.debug(f'bop: {ctx.getText()}')
                 in_l, out_v = self.in_out_vars(ctx.getChild(0))
                 in_v = self.in_vars(ctx.getChild(2))
                 self.merge(self.vars, out_v, in_v, in_l)
@@ -211,10 +225,12 @@ class RecVisitor(ExtVisitor):
                 self.matrix = self.compose(self.matrix, fl1, fl2)
 
         elif ctx.getChildCount() == 2:
-            v1 = ctx.getChild(0).getText()
-            v2 = ctx.getChild(1).getText()
-            if v1 in ["++", "--"] or v2 in ["++", "--"]:
-                in_l, out_v = self.in_out_vars(ctx.getChild(0))
+            ops = ["++", "--"]
+            v1, v2 = ctx.getChild(0), ctx.getChild(1)
+            if v1.getText() in ops or v2.getText() in ops:
+                id_node = v1 if v1.getText() not in ops else v2
+                logger.debug(f'unary: {ctx.getText()}')
+                in_l, out_v = self.in_out_vars(id_node)
                 self.merge(self.vars, out_v, in_l)
                 self.merge(self.out_v, out_v)
                 flows = self.assign(in_l, out_v)
