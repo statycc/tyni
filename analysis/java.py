@@ -6,13 +6,14 @@ import sys
 from functools import reduce
 from itertools import product
 from typing import Type
+from pprint import pprint
 
 from antlr4 import FileStream, CommonTokenStream
 
-from src import AbstractAnalyzer
-from src.parser.JavaLexer import JavaLexer
-from src.parser.JavaParser import JavaParser
-from src.parser.JavaParserVisitor import JavaParserVisitor
+from analysis import AbstractAnalyzer
+from analysis.parser.JavaLexer import JavaLexer
+from analysis.parser.JavaParser import JavaParser
+from analysis.parser.JavaParserVisitor import JavaParserVisitor
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,10 @@ class JavaAnalyzer(AbstractAnalyzer):
     def analyze(self):
         assert self.tree
         result = ClassVisitor().visit(self.tree).result
-        self.save(result)
+        if self.out_file:
+            self.save(result)
+        else:
+            pprint(result)
         return result
 
 

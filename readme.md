@@ -10,7 +10,7 @@ A static analyzer implementing our information flow calculus (work in progress).
 4. The result of the previous step is written to a file (an intermediate result).
 5. the captured matrix data is evaluated (separately). 
 
-Same, but more visually, in two steps:
+Same, but visually in two steps:
 
 ```
 [input].java                         ┐
@@ -22,29 +22,33 @@ Same, but more visually, in two steps:
 
 [input].json                         ┐
 ---> evaluate matrix data            ├─ evaluation phase [TODO]
----> get interesting infromation     ┘  
+---> get interesting info            ┘  
 ```
+
+**Reading the analysis result**
 
 The data captured in the analysis phase includes:
 
 ```
- "input_prog"          // the analyzed program (file path)
- "result"              // analysis outcomes 
-   "class_name"        // possibly nested, with dot operator
-     "identifier"      // method name #1
-       "method"        // method source code (for reference) 
-       "flows"         // violating variable pairs [in, out]
-       "variables"     // encountered variables, see note below 
-     "identifier"      // method name #2 
-       ...             // method data
-   "class_name"        // another class (if any)
-     ...               // class data
+ "input_prog"          str                // the analyzed program (file path)
+ "result"              dict               // analysis outcomes 
+   "class_name"        dict[str,dict]     // full hierarchical name if nested
+     "identifier"      dict[str,dict]     // method name #1
+       "method"        str                // method source code (for reference) 
+       "flows"         List[(str,str)]    // violating variable pairs (in, out)
+       "variables"     List[str]          // encountered variables, see note below 
+     "identifier"                         // method name #2 
+       ...                                // method data
+   "class_name"                           // another class (if any)
+     ...                                  // class data
 ```
 
-The variables list is not always complete. 
-It will not include variables that occur only in "uninteresting" statements, e.g., an unused declaration would not show up in variables. 
-This is because the analysis proceed by looking at specific statements in the program -- those that belong to the analysis syntax, like loops and conditionals -- and skips others.
-The variables list contains all variables that occurred in the handled statements.
+The variables list does not necessarily contain every variable of the program.
+It excludes variables that occur only in "uninteresting" statements, e.g., an unused variable declaration. 
+This is because the analysis handles only specific statements in the program -- those that belong to the analysis syntax -- and skips others.
+The variables list contains variables that occurred in these handled statements.
+
+The results do not show a full security flow matrix, but combining flows and variables is sufficient to capture fully the matrix data, since it is a binary matrix.
 
 ### Usage
 
@@ -60,30 +64,30 @@ The variables list contains all variables that occurred in the handled statement
    Supported input languages: Java (v. 7/8/11/17)
 
    ```
-   python3 -m src [input program]
+   python3 -m analysis [input program]
    ```
 
    For example
 
    ```
-   python3 -m src programs/IFCprog1/Program.java
+   python3 -m analysis programs/IFCprog1/Program.java
    ```
 
 3. **For help**, and for a full list of command arguments, run 
 
    ```
-   python3 -m src
+   python3 -m analysis
    ```
 
 ### Repository organization
 
 ```
 .
-├─ grammars/               # specs for recognized inputs
-├─ programs/               # example programs to analyze
-├─ src                     # source code
+├─ analysis                # analyzer source code
 │  ├─ parser/              # generated parser (from grammars)
 │  └─ *                    # analyzer implementation
+├─ grammars/               # input language specifications
+├─ programs/               # example programs for analysis
 ├─ Makefile                # helpful commands
 ├─ readme.md               # instructions
 ├─ requirements.txt        # Python dependencies 
@@ -107,7 +111,7 @@ make help   : other available commands
   bytecode.
 
 * It is also not necessary to rebuild the parser; it is already built
-  (in `src/parser`). But it is easy to rebuild, if necessary, with 
+  (in `analysis/parser`). But it is easy to rebuild, if necessary, with 
   ANTLR and using the Makefile commands.
 
 ### About design choices

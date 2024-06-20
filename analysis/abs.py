@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class AbstractAnalyzer(ABC):
     def __init__(self, input_file: str, out_file: str = None):
         self.input_file = input_file
-        self.out_file = out_file or self.default_out(input_file)
+        self.out_file = out_file # or self.default_out(input_file)
         self.tree = None
 
     @staticmethod

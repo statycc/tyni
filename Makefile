@@ -21,6 +21,9 @@ O_DIR = build
 B_DIR = bytecode
 PROGS = $(patsubst %/,%, $(patsubst $(P_DIR)/%,%, $(dir $(wildcard $(P_DIR)/*/$(PNAME).java))))
 
+### ANALYSIS
+ANALYZER = analysis
+
 
 compile: $(P_DIR)
 	@$(foreach p, $(PROGS), javac -d ./$(O_DIR)/ $(P_DIR)/$(p)/*.java ; )
@@ -38,7 +41,7 @@ rebuild:
 
 ptest:
 	@$(foreach p, $(PROGS), \
-		echo "PARSE $(p)" && python3 -m src $(P_DIR)/$(p)/$(PNAME).java --parse -l 0 ; )
+		echo "PARSE $(p)" && python3 -m $(ANALYZER) $(P_DIR)/$(p)/$(PNAME).java --parse -l 0 ; )
 
 clean:
 	@rm -rf $(O_DIR) $(B_DIR) output
