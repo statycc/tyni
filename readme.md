@@ -117,6 +117,7 @@ The results do not show a full security flow matrix, but combining flows and var
 **Commands**
 
 ```
+make test   : run unit tests
 make ptest  : try parse all programs
 make clean  : remove generated files (except parser)
 make help   : other available commands
