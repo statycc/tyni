@@ -211,11 +211,12 @@ class RecVisitor(ExtVisitor):
                 self.matrix = self.compose(self.matrix, fl1, fl2)
 
         elif ctx.getChildCount() == 2:
-            v1 = ctx.getChild(0).getText()
-            v2 = ctx.getChild(1).getText()
-            if idx := 0 if v1 not in ["++", "--"] else \
-                    1 if v2 not in ["++", "--"] else None:
-                in_l, out_v = self.in_out_vars(ctx.getChild(idx))
+            ops = ["++", "--"]
+            v1, v2 = ctx.getChild(0), ctx.getChild(1)
+            if v1.getText() in ops or v2.getText() in ops:
+                id_node = v1 if v1.getText() not in ops else v2
+                logger.debug(f'unary: {ctx.getText()}')
+                in_l, out_v = self.in_out_vars(id_node)
                 self.merge(self.vars, out_v, in_l)
                 self.merge(self.out_v, out_v)
                 flows = self.assign(in_l, out_v)
