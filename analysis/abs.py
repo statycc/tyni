@@ -103,6 +103,21 @@ class BaseVisitor:
         colored = f'{bcolors.WARNING}{text}{bcolors.ENDC}'
         logger.warning(f'unhandled{desc_} {colored}')
 
+    @staticmethod
+    def og_text(ctx) -> str:
+        """Get the original of a parse tree node.
+
+        Arguments:
+            ctx: tree node
+
+        Returns:
+            Node text with original whitespaces.
+        """
+        token_source = ctx.start.getTokenSource()
+        input_stream = token_source.inputStream
+        start, stop = ctx.start.start, ctx.stop.stop
+        return input_stream.getText(start, stop)
+
 
 class ResultObj(dict):
     """Base class for a capturing analysis results."""

@@ -2,14 +2,13 @@ from analysis import JavaAnalyzer
 
 
 def helper(prog, cls_name, method):
-    res = JavaAnalyzer(prog).parse().run()[cls_name][method]
+    p = f'programs/{prog}/Program.java'
+    res = JavaAnalyzer(p).parse().run()[cls_name][method]
     return sorted(res['variables']), res['flows']
 
 
 def test_ifc_prog1():
-    vrs, flows = helper(
-        'programs/IFCprog1/Program.java',
-        'Program', 'example')
+    vrs, flows = helper('IFCprog1', 'Program', 'example')
     assert vrs == ['x', 'y', 'z']
     assert ('x', 'y') in flows
     assert ('y', 'x') in flows
@@ -19,9 +18,7 @@ def test_ifc_prog1():
 
 
 def test_ifc_prog2a():
-    vrs, flows = helper(
-        'programs/IFCprog2a/Program.java',
-        'Program', 'example')
+    vrs, flows = helper('IFCprog2a', 'Program', 'example')
     assert vrs == ['w', 'x', 'y', 'z']
     assert ('x', 'w') in flows
     assert ('y', 'x') in flows
@@ -30,9 +27,7 @@ def test_ifc_prog2a():
 
 
 def test_ifc_prog2b():
-    vrs, flows = helper(
-        'programs/IFCprog2b/Program.java',
-        'Program', 'example')
+    vrs, flows = helper('IFCprog2b', 'Program', 'example')
     assert vrs == ['w', 'x', 'y', 'z']
     assert ('w', 'z') in flows
     assert ('x', 'z') in flows
@@ -44,9 +39,7 @@ def test_ifc_prog2b():
 
 
 def test_ifc_prog3():
-    vrs, flows = helper(
-        'programs/IFCprog3/Program.java',
-        'Program', 'example')
+    vrs, flows = helper('IFCprog3', 'Program', 'example')
     assert vrs == ['i', 'j', 's1', 's2', 't']
     assert ('t', 'i') in flows
     assert ('j', 'i') in flows
@@ -60,9 +53,7 @@ def test_ifc_prog3():
 
 
 def test_ifc_ex1():
-    vrs, flows = helper(
-        'programs/IFCex1/Program.java',
-        'Program', 'example')
+    vrs, flows = helper('IFCex1', 'Program', 'example')
     assert vrs == ['h', 'y', 'z']
     assert ('h', 'y') in flows
     assert ('y', 'z') in flows
@@ -71,9 +62,7 @@ def test_ifc_ex1():
 
 
 def test_ifc_ex2():
-    vrs, flows = helper(
-        'programs/IFCex1/Program.java',
-        'Program', 'example')
+    vrs, flows = helper('IFCex2', 'Program', 'example')
     assert vrs == ['x', 'y', 'z']
     assert ('y', 'x') in flows
     assert ('z', 'x') in flows

@@ -51,13 +51,6 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         super().visit(tree)
         return self
 
-    @staticmethod
-    def og_text(ctx):
-        token_source = ctx.start.getTokenSource()
-        input_stream = token_source.inputStream
-        start, stop = ctx.start.start, ctx.stop.stop
-        return input_stream.getText(start, stop)
-
 
 class IdVisitor(ExtVisitor):
     """Finds identifiers in a parse tree"""
@@ -267,8 +260,10 @@ class RecVisitor(ExtVisitor):
             self.corr_stmt(ctx.getChild(1), ctx.getChild(4))
 
     def __for(self, ctx: JavaParser.StatementContext):
-        # TODO: improve forControl handling
-        self.corr_stmt(ctx.getChild(2), ctx.getChild(4))
+        ctrl, body = ctx.getChild(2), ctx.getChild(4)
+        init, cond, updt = [ctrl.getChild(i) for i in [0, 2, 4]]
+        self.corr_stmt(cond, updt)
+        self.corr_stmt(cond, body)
 
     def __while(self, ctx: JavaParser.StatementContext):
         self.corr_stmt(ctx.getChild(1), ctx.getChild(2))
