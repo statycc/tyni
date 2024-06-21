@@ -67,3 +67,30 @@ def test_ifc_ex2():
     assert ('y', 'x') in flows
     assert ('z', 'x') in flows
     assert len(flows) == 2
+
+
+def test_sql_injection():
+    vrs, flows = helper('SqlInjection', 'Program', 'example')
+    assert vrs == ['query', 'request', 'sb1', 'sb2', 'user']
+    assert ('request', 'user') in flows
+    assert ('user', 'sb1') in flows
+    assert ('sb2', 'query') in flows
+    assert len(flows) == 3
+
+
+def test_mvt_kernel():
+    vrs, flows = helper('MvtKernel', 'Program', 'mvt')
+    assert vrs == 'A,N,i,j,x1,x2,y1,y2'.split(',')
+    assert ('i', 'j') in flows
+    assert ('N', 'j') in flows
+    assert ('A', 'x1') in flows
+    assert ('A', 'x2') in flows
+    assert ('i', 'x1') in flows
+    assert ('i', 'x2') in flows
+    assert ('j', 'x1') in flows
+    assert ('j', 'x2') in flows
+    assert ('N', 'x1') in flows
+    assert ('N', 'x2') in flows
+    assert ('y1', 'x1') in flows
+    assert ('y2', 'x2') in flows
+    assert len(flows) == 13
