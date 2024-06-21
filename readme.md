@@ -61,7 +61,7 @@ The results do not show a full security flow matrix, but combining flows and var
 
 2. **Run analyzer on input program**
 
-   * Supported input languages: Java v. 7/8/11/17
+   Supported input languages: Java v. 7/8/11/17
 
    ```
    python3 -m analysis [input program]

@@ -176,13 +176,13 @@ class RecVisitor(ExtVisitor):
         # elif ctx.SYNCHRONIZED():
         #     logger.debug(f'sync: {ctx.getText()}')
         elif ctx.RETURN():
-            return self.wclr(self.og_text(ctx), 'return')
+            return self.wclr(self.og_text(ctx))
         # elif ctx.THROW():
         #     logger.debug(f'throw: {ctx.getText()}')
         elif ctx.BREAK():
-            return self.wclr(self.og_text(ctx), 'break')
+            return self.wclr(self.og_text(ctx))
         elif ctx.CONTINUE():
-            return self.wclr(self.og_text(ctx), 'continue')
+            return self.wclr(self.og_text(ctx))
         # elif ctx.YIELD():
         #     logger.debug(f'yield: {ctx.getText()}')
         # elif ctx.SEMI():
