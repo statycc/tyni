@@ -63,7 +63,7 @@ class AbstractAnalyzer(ABC):
             os.makedirs(dir_path)
         with open(self.out_file, "w") as outfile:
             json.dump(content, outfile, indent=4)
-        logger.info(f'Wrote result to: {self.file_name}')
+        logger.info(f'Wrote result to: {self.out_file}')
 
     @staticmethod
     def default_out(input_file, out_dir='out', path_depth=3) -> str:
