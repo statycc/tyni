@@ -5,8 +5,8 @@ import sys
 from argparse import ArgumentParser, Namespace
 from typing import Optional, Type
 
-from analysis import __version__, __title__ as prog_name
 from analysis import AbstractAnalyzer, JavaAnalyzer
+from analysis import __version__, __title__ as prog_name
 
 
 def main():
@@ -30,7 +30,8 @@ def main():
     args.parse or analyzer.run()
 
 
-def __choose_analyzer(input_file: str) -> Optional[Type[AbstractAnalyzer]]:
+def __choose_analyzer(input_file: str) \
+        -> Optional[Type[AbstractAnalyzer]]:
     if JavaAnalyzer.lang_match(input_file):
         return JavaAnalyzer
     return None
@@ -41,8 +42,7 @@ def __logger_setup(level_arg: int) -> logging.Logger:
              logging.INFO, logging.DEBUG][level_arg]
     root_log = logging.getLogger(prog_name)
     root_log.setLevel(level)
-    extras = ' %(module)s' if level == logging.DEBUG else ''
-    fmt = f'[%(asctime)s] %(levelname)s{extras}: %(message)s'
+    fmt = '[%(asctime)s] %(levelname)s: %(message)s'
     formatter = logging.Formatter(fmt, datefmt='%H:%M:%S')
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setFormatter(formatter)

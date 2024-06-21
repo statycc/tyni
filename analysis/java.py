@@ -5,13 +5,11 @@ import operator
 import sys
 from functools import reduce
 from itertools import product
-from typing import Type
-from pprint import pprint
 
 from antlr4 import FileStream, CommonTokenStream
 
-from analysis import \
-    AbstractAnalyzer, ClassResult, MethodResult, bcolors
+from analysis import AbstractAnalyzer, ClassResult, MethodResult
+from analysis import BaseVisitor
 from analysis.parser.JavaLexer import JavaLexer
 from analysis.parser.JavaParser import JavaParser
 from analysis.parser.JavaParserVisitor import JavaParserVisitor
@@ -48,16 +46,10 @@ class JavaAnalyzer(AbstractAnalyzer):
         return result
 
 
-class ExtVisitor(JavaParserVisitor):
+class ExtVisitor(BaseVisitor, JavaParserVisitor):
     def visit(self, tree):
         super().visit(tree)
         return self
-
-    @staticmethod
-    def wclr(s: str, desc: str = ""):
-        desc_ = f" {desc}" if desc else ""
-        logger.warning(f'unhandled{desc_} '
-                       f'{bcolors.WARNING}{s}{bcolors.ENDC}')
 
 
 class IdVisitor(ExtVisitor):
@@ -150,8 +142,8 @@ class RecVisitor(ExtVisitor):
 
     @staticmethod
     def assign(in_v, out_v):
-        neq = lambda x: x[0] != x[1]
-        return list(filter(neq, product(in_v, out_v)))
+        return list(filter(
+            lambda x: x[0] != x[1], product(in_v, out_v)))
 
     @staticmethod
     def correction(occ, out):
@@ -159,12 +151,12 @@ class RecVisitor(ExtVisitor):
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
         super().visitMethodCall(ctx)
-        self.wclr(ctx.getText(), 'method call')
+        self.wclr(ctx.getText(), 'call')
 
     def visitVariableDeclarator(
             self, ctx: JavaParser.VariableDeclaratorContext):
         super().visitVariableDeclarator(ctx)
-        self.wclr(ctx.getText(), 'var decl')
+        self.wclr(ctx.getText(), 'decl')
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
         """Statement handlers, grammars/JavaParser.g4#L508"""
@@ -186,14 +178,14 @@ class RecVisitor(ExtVisitor):
         #     logger.debug(f'switch: {ctx.getText()}')
         # elif ctx.SYNCHRONIZED():
         #     logger.debug(f'sync: {ctx.getText()}')
-        # elif ctx.RETURN():
-        #     logger.debug(f'return: {ctx.getText()}')
+        elif ctx.RETURN():
+            return self.wclr(ctx.getText(), 'return')
         # elif ctx.THROW():
         #     logger.debug(f'throw: {ctx.getText()}')
-        # elif ctx.BREAK():
-        #     logger.debug(f'break: {ctx.getText()}')
-        # elif ctx.CONTINUE():
-        #     logger.debug(f'cont: {ctx.getText()}')
+        elif ctx.BREAK():
+            return self.wclr(ctx.getText(), 'break')
+        elif ctx.CONTINUE():
+            return self.wclr(ctx.getText(), 'continue')
         # elif ctx.YIELD():
         #     logger.debug(f'yield: {ctx.getText()}')
         # elif ctx.SEMI():
@@ -223,8 +215,9 @@ class RecVisitor(ExtVisitor):
                 fl1 = self.assign(in_v, out_v)
                 fl2 = self.assign(in_l, out_v)
                 self.matrix = self.compose(self.matrix, fl1, fl2)
+                return
 
-        elif ctx.getChildCount() == 2:
+        if ctx.getChildCount() == 2:
             ops = ["++", "--"]
             v1, v2 = ctx.getChild(0), ctx.getChild(1)
             if v1.getText() in ops or v2.getText() in ops:
@@ -235,8 +228,9 @@ class RecVisitor(ExtVisitor):
                 self.merge(self.out_v, out_v)
                 flows = self.assign(in_l, out_v)
                 self.matrix = self.compose(self.matrix, flows)
-        else:
-            super().visitExpression(ctx)
+                return
+
+        super().visitExpression(ctx)
 
     @staticmethod
     def in_out_vars(ctx: JavaParser.ExpressionContext):
@@ -245,8 +239,8 @@ class RecVisitor(ExtVisitor):
             return {}, all_vars
         # TODO: out exp with multiple variables
         #   is it always the case that left-most is out, rest are in?
-        logger.debug(f"exp/L: {ctx.getText()} {ctx.getChildCount()}")
-        logger.debug(f"exp/L: {ctx.getChild(0).getChildCount()}")
+        logger.debug(f"exp/L: {ctx.getText()} {ctx.getChildCount()} "
+                     f"{ctx.getChild(0).getChildCount()}")
         return {}, {}
 
     @staticmethod

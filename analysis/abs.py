@@ -4,7 +4,6 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Type
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +14,7 @@ class AbstractAnalyzer(ABC):
 
         Arguments:
             input_file: input program to analyze.
-            out_file: FILE where to save analysis results [default: None].
+            out_file: FILE for analysis results [default: None].
         """
         self.input_file = input_file
         self.out_file = out_file
@@ -89,6 +88,14 @@ class AbstractAnalyzer(ABC):
             print(cls)
 
 
+class BaseVisitor:
+    @staticmethod
+    def wclr(s: str, desc: str = ""):
+        desc_ = f" {desc}" if desc else ""
+        colored = f'{bcolors.WARNING}{s}{bcolors.ENDC}'
+        logger.warning(f'unhandled{desc_} {colored}')
+
+
 class ResultObj(dict):
     @staticmethod
     def coloring(s: str):
@@ -104,11 +111,11 @@ class ClassResult(ResultObj):
             super().__setitem__(k, v)
 
     def __str__(self):
-        sep = lambda x: "\n" + (x * 52) + '\n'
+        sep = "\n" + ('-' * 52) + '\n'
         c_name = self.coloring(self.name)
-        methods = sep('-').join(
+        methods = sep.join(
             [str(self.__getitem__(m)) for m in self.methods])
-        return f'class {c_name}{sep("-")}{methods}'
+        return f'class {c_name}{sep}{methods}'
 
 
 class MethodResult(ResultObj):
@@ -135,7 +142,7 @@ class MethodResult(ResultObj):
         flows = self.joiner("flows", self.flow_fmt)
         m_name = self.coloring(self.name)
         return (f'Method: {m_name}\n{code}\n'
-                f'  Vars: {vars_}\n Flows: {flows}')
+                f'Vars:   {vars_}\nFlows:  {flows}')
 
 
 # noinspection PyClassHasNoInit,PyPep8Naming

@@ -26,9 +26,7 @@ PROGS = $(patsubst %/,%, $(patsubst $(P_DIR)/%,%, $(dir $(wildcard $(P_DIR)/*/$(
 ANALYZER = analysis
 DEFAULT_OUT = out
 
-test: dev-env test_analysis
-
-dev-env:
+dev:
 	@test -d venv || python3 -m venv venv;
 	@source venv/bin/activate;
 	@pip3 install -q -r requirements-dev.txt
@@ -51,8 +49,13 @@ ptest:
 	@$(foreach p, $(PROGS), \
 		echo "PARSE $(p)" && python3 -m $(ANALYZER) $(P_DIR)/$(p)/$(PNAME).java --parse -l 0 ; )
 
-test_analysis:
-	pytest --cov=$(ANALYZER) tests
+test:
+	@make dev && pytest --cov=$(ANALYZER) tests
+
+lint:
+	@make dev && flake8 $(ANALYZER) \
+	--count --show-source --statistics \
+	--exclude "$(ANALYZER)/parser"
 
 clean:
 	@rm -rf $(O_DIR) $(B_DIR) $(DEFAULT_OUT)

@@ -1,6 +1,7 @@
 -r requirements.txt
 
 antlr4-tools
+flake8
 pytest
 pytest-cov
 pytest-mock
