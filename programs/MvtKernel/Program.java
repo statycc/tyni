@@ -20,9 +20,7 @@ public class Program {
      * From PolyBench/C benchmark suite.
      * Linear algebra/mvt kernel
      */
-    static protected void mvt(
-            int N, int[] x1, int[] x2,
-            int[] y1, int[] y2, int[][] A) {
+    static protected void mvt(int N, int[] x1, int[] x2, int[] y1, int[] y2, int[][] A) {
         int i, j;
         for (i = 0; i < N; i++)
             for (j = 0; j < N; j++)

@@ -82,7 +82,7 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
     parser.add_argument(
         '--parse',
         action='store_true',
-        help='parse only (skip analysis)'
+        help='parse only, skipping analysis'
     )
     return parser.parse_args(None)
 

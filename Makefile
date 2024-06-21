@@ -1,13 +1,13 @@
-all: test
+all: lint test
 
 help:
-	@echo "ptest       ─ try parse all programs"
-	@echo "test        ─ run unit tests"
-	@echo "build       ─ compile java programs to bytecode (.class)"
-	@echo "bytecode    ─ translate .class files to readable bytecode"
-	@echo "parser      ─ build a parser from grammars"
-	@echo "rebuild     ─ forcibly re-build the parser"
-	@echo "clean       ─ remove all generated files (except parser)"
+	@echo "test      ─ run unit tests"
+	@echo "lint      ─ run linter"
+	@echo "ptest     ─ try parse all programs"
+	@echo "build     ─ compile java programs to bytecode"
+	@echo "bytecode  ─ compile java programs to -readable- bytecode"
+	@echo "parser    ─ build a parser from grammars"
+	@echo "clean     ─ remove all generated files (except parser)"
 
 ### ANTLR SETUP
 ANTLR_V=4.13.1  # must match version in requirements.txt
@@ -50,7 +50,7 @@ ptest: $(P_DIR)
 		echo "PARSE $(p)" && python3 -m $(ANALYZER) $(P_DIR)/$(p)/$(PNAME).java --parse -l 0 ; )
 
 test:
-	@make dev && pytest --cov=$(ANALYZER) tests
+	@make dev && pytest --cov=$(ANALYZER) tests --show-capture=no
 
 lint:
 	@make dev && flake8 $(ANALYZER) \

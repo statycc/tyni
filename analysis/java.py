@@ -36,7 +36,7 @@ class JavaAnalyzer(AbstractAnalyzer):
         self.tree = parser.compilationUnit()
         return self
 
-    def run(self):
+    def run(self) -> dict:
         assert self.tree
         result = ClassVisitor().visit(self.tree).result
         if self.out_file:
@@ -50,6 +50,13 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
     def visit(self, tree):
         super().visit(tree)
         return self
+
+    @staticmethod
+    def og_text(ctx):
+        token_source = ctx.start.getTokenSource()
+        input_stream = token_source.inputStream
+        start, stop = ctx.start.start, ctx.stop.stop
+        return input_stream.getText(start, stop)
 
 
 class IdVisitor(ExtVisitor):
@@ -94,13 +101,6 @@ class ClassVisitor(ExtVisitor):
     def mat_format(mat):
         return list(set(mat))
 
-    @staticmethod
-    def extract_text(ctx):
-        token_source = ctx.start.getTokenSource()
-        input_stream = token_source.inputStream
-        start, stop = ctx.start.start, ctx.stop.stop
-        return input_stream.getText(start, stop)
-
     def visitClassDeclaration(
             self, ctx: JavaParser.ClassDeclarationContext):
         self.name = self.hierarchy(ctx.identifier().getText())
@@ -117,7 +117,7 @@ class ClassVisitor(ExtVisitor):
         prog = RecVisitor().visit(ctx.methodBody())
         # noinspection PyTypeChecker
         self.record(self, name, MethodResult(
-            name, self.extract_text(ctx),
+            name, self.og_text(ctx),
             self.mat_format(prog.matrix),
             prog.vars))
 
@@ -156,11 +156,11 @@ class RecVisitor(ExtVisitor):
             self, ctx: JavaParser.VariableDeclaratorContext):
         # TODO: implement this!
         super().visitVariableDeclarator(ctx)
-        self.wclr(ctx.getText(), 'decl')
+        self.wclr(self.og_text(ctx), 'decl')
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
         super().visitMethodCall(ctx)
-        self.wclr(ctx.getText(), 'call')
+        self.wclr(self.og_text(ctx), 'call')
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
         """Statement handlers, grammars/JavaParser.g4#L508"""
@@ -183,13 +183,13 @@ class RecVisitor(ExtVisitor):
         # elif ctx.SYNCHRONIZED():
         #     logger.debug(f'sync: {ctx.getText()}')
         elif ctx.RETURN():
-            return self.wclr(ctx.getText(), 'return')
+            return self.wclr(self.og_text(ctx), 'return')
         # elif ctx.THROW():
         #     logger.debug(f'throw: {ctx.getText()}')
         elif ctx.BREAK():
-            return self.wclr(ctx.getText(), 'break')
+            return self.wclr(self.og_text(ctx), 'break')
         elif ctx.CONTINUE():
-            return self.wclr(ctx.getText(), 'continue')
+            return self.wclr(self.og_text(ctx), 'continue')
         # elif ctx.YIELD():
         #     logger.debug(f'yield: {ctx.getText()}')
         # elif ctx.SEMI():

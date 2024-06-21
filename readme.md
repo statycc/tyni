@@ -102,7 +102,7 @@ The results do not show a full security flow matrix, but combining flows and var
 
 ```
 .
-├─ analysis                # analyzer source code
+├─ analysis/               # analyzer source code
 │  ├─ parser/              # generated parser (from grammars)
 │  └─ *                    # analyzer implementation
 ├─ grammars/               # input language specifications
@@ -117,11 +117,13 @@ The results do not show a full security flow matrix, but combining flows and var
 
 **Commands**
 
+Some helpful commands
+
 ```
 make test   : run unit tests
 make ptest  : try parse all programs
 make clean  : remove generated files (except parser)
-make help   : other available commands
+make help   : lists other available commands
 ```
 
 * Running these commands assumes dev requirements are installed.
