@@ -3,7 +3,7 @@ all: test
 help:
 	@echo "ptest       ─ try parse all programs"
 	@echo "test        ─ run unit tests"
-	@echo "compile     ─ compile java programs to bytecode (.class)"
+	@echo "build       ─ compile java programs to bytecode (.class)"
 	@echo "bytecode    ─ translate .class files to readable bytecode"
 	@echo "parser      ─ build a parser from grammars"
 	@echo "rebuild     ─ forcibly re-build the parser"
@@ -31,10 +31,10 @@ dev:
 	@source venv/bin/activate;
 	@pip3 install -q -r requirements-dev.txt
 
-compile: $(P_DIR)
+build: $(P_DIR)
 	@$(foreach p, $(PROGS), javac -d ./$(O_DIR)/ $(P_DIR)/$(p)/*.java ; )
 
-bytecode:
+bytecode: $(O_DIR)
 	@mkdir -p $(B_DIR)
 	@$(foreach p, $(PROGS), $(foreach c, $(notdir $(basename $(wildcard $(O_DIR)/$(p)/*.class))), \
 	javap -cp $(O_DIR) -c $(p).$(c) >> $(B_DIR)/$(p).$(c).txt ; ))
@@ -45,7 +45,7 @@ parser: $(GRAMMAR)
 rebuild:
 	rm -rf $(OUT) && make parser
 
-ptest:
+ptest: $(P_DIR)
 	@$(foreach p, $(PROGS), \
 		echo "PARSE $(p)" && python3 -m $(ANALYZER) $(P_DIR)/$(p)/$(PNAME).java --parse -l 0 ; )
 
@@ -59,4 +59,5 @@ lint:
 
 clean:
 	@rm -rf $(O_DIR) $(B_DIR) $(DEFAULT_OUT)
+	@rm -rf .pytest_cache .coverage
 	@find . -name \*.Program.txt -type f -delete

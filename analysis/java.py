@@ -56,12 +56,15 @@ class IdVisitor(ExtVisitor):
     """Finds identifiers in a parse tree"""
 
     def __init__(self):
-        self.vars = {}
+        self.flat = []
+
+    @property
+    def vars(self):
+        return dict([(x, x) for x in self.flat])
 
     def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
         super().visitIdentifier(ctx)
-        name = ctx.getText()
-        self.vars[name] = name
+        self.flat.append(ctx.getText())
 
 
 class ClassVisitor(ExtVisitor):
@@ -149,14 +152,15 @@ class RecVisitor(ExtVisitor):
     def correction(occ, out):
         return RecVisitor.assign(occ, out)
 
+    def visitVariableDeclarator(
+            self, ctx: JavaParser.VariableDeclaratorContext):
+        # TODO: implement this!
+        super().visitVariableDeclarator(ctx)
+        self.wclr(ctx.getText(), 'decl')
+
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
         super().visitMethodCall(ctx)
         self.wclr(ctx.getText(), 'call')
-
-    def visitVariableDeclarator(
-            self, ctx: JavaParser.VariableDeclaratorContext):
-        super().visitVariableDeclarator(ctx)
-        self.wclr(ctx.getText(), 'decl')
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
         """Statement handlers, grammars/JavaParser.g4#L508"""
@@ -212,9 +216,10 @@ class RecVisitor(ExtVisitor):
                 in_v = self.in_vars(ctx.getChild(2))
                 self.merge(self.vars, out_v, in_v, in_l)
                 self.merge(self.out_v, out_v)
-                fl1 = self.assign(in_v, out_v)
-                fl2 = self.assign(in_l, out_v)
-                self.matrix = self.compose(self.matrix, fl1, fl2)
+                flows = self.compose(
+                    self.assign(in_v, out_v),
+                    self.assign(in_l, out_v))
+                self.matrix = self.compose(self.matrix, flows)
                 return
 
         if ctx.getChildCount() == 2:
@@ -233,19 +238,20 @@ class RecVisitor(ExtVisitor):
         super().visitExpression(ctx)
 
     @staticmethod
-    def in_out_vars(ctx: JavaParser.ExpressionContext):
-        all_vars = IdVisitor().visit(ctx).vars
-        if len(all_vars) <= 1:
-            return {}, all_vars
-        # TODO: out exp with multiple variables
-        #   is it always the case that left-most is out, rest are in?
-        logger.debug(f"exp/L: {ctx.getText()} {ctx.getChildCount()} "
-                     f"{ctx.getChild(0).getChildCount()}")
-        return {}, {}
-
-    @staticmethod
     def in_vars(ctx: JavaParser.ExpressionContext):
         return IdVisitor().visit(ctx).vars
+
+    @staticmethod
+    def in_out_vars(ctx: JavaParser.ExpressionContext):
+        # find all variables in the expression
+        all_vars = IdVisitor().visit(ctx)
+        # the left-most is the out-variable
+        fst = all_vars.flat.pop(0)
+        # all others are in-variables
+        rest = ', '.join(all_vars.flat)
+        logger.debug(f'left out: {fst}')
+        logger.debug(f'left in: {rest or "-"}')
+        return all_vars.vars, {fst: fst}
 
     def corr_stmt(self, exp, body):
         ex_vars = self.occurs(exp)
@@ -255,13 +261,14 @@ class RecVisitor(ExtVisitor):
         self.merge(self.vars, ex_vars, st_body.vars)
         self.merge(self.out_v, st_body.out_v)
 
-    def __for(self, ctx: JavaParser.StatementContext):
-        self.corr_stmt(ctx.getChild(2), ctx.getChild(4))
-
     def __if(self, ctx: JavaParser.StatementContext):
         self.corr_stmt(ctx.getChild(1), ctx.getChild(2))
         if ctx.getChildCount() > 4:  # else branch
             self.corr_stmt(ctx.getChild(1), ctx.getChild(4))
+
+    def __for(self, ctx: JavaParser.StatementContext):
+        # TODO: improve forControl handling
+        self.corr_stmt(ctx.getChild(2), ctx.getChild(4))
 
     def __while(self, ctx: JavaParser.StatementContext):
         self.corr_stmt(ctx.getChild(1), ctx.getChild(2))

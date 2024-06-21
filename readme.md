@@ -107,6 +107,7 @@ The results do not show a full security flow matrix, but combining flows and var
 │  └─ *                    # analyzer implementation
 ├─ grammars/               # input language specifications
 ├─ programs/               # example programs for analysis
+├─ tests/                  # unit tests
 ├─ Makefile                # helpful commands
 ├─ readme.md               # instructions
 ├─ requirements.txt        # Python dependencies 

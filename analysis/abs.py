@@ -89,60 +89,77 @@ class AbstractAnalyzer(ABC):
 
 
 class BaseVisitor:
+    """Base class for a parse-tree visitor."""
+
     @staticmethod
-    def wclr(s: str, desc: str = ""):
+    def wclr(text: str, desc: str = "") -> None:
+        """Displays a colored warning.
+
+        Arguments:
+            text: text to display.
+            desc: optional description.
+        """
         desc_ = f" {desc}" if desc else ""
-        colored = f'{bcolors.WARNING}{s}{bcolors.ENDC}'
+        colored = f'{bcolors.WARNING}{text}{bcolors.ENDC}'
         logger.warning(f'unhandled{desc_} {colored}')
 
 
 class ResultObj(dict):
+    """Base class for a capturing analysis results."""
+
     @staticmethod
-    def coloring(s: str):
-        return f'{bcolors.OKBLUE}{s}{bcolors.ENDC}'
+    def coloring(text: str) -> str:
+        """Adds color to text.
+
+        Arguments:
+            text: text to color.
+
+        Returns:
+            The original text with added color.
+        """
+        return f'{bcolors.OKBLUE}{text}{bcolors.ENDC}'
 
 
 class ClassResult(ResultObj):
     def __init__(self, name: str, methods: dict[MethodResult]):
         super().__init__()
+        self.update(methods)
         self.name = name
-        self.methods = list(methods.keys())
-        for (k, v) in methods.items():
-            super().__setitem__(k, v)
 
     def __str__(self):
         sep = "\n" + ('-' * 52) + '\n'
         c_name = self.coloring(self.name)
-        methods = sep.join(
-            [str(self.__getitem__(m)) for m in self.methods])
-        return f'class {c_name}{sep}{methods}'
+        items = map(str, self.values())
+        return f'class {c_name}{sep}{sep.join(items)}'
 
 
 class MethodResult(ResultObj):
     def __init__(self, name: str, source: str, flows: list[list[str]],
                  variables: dict[str, str]):
         super().__init__()
-        self.name = name
         super().__setitem__('variables', list(variables))
         super().__setitem__('source', source)
         super().__setitem__('flows', flows)
+        self.name = name
 
     @staticmethod
     def flow_fmt(tpl):
         return MethodResult.coloring(f'{tpl[0]}🌢{tpl[1]}')
 
-    def joiner(self, key, fmt=None):
+    def join_(self, key, fmt=None):
         f = fmt or self.coloring
-        return (", ".join(map(f, self.__getitem__(key)))
-                or self.coloring('-'))
+        items = ", ".join(sorted(map(f, self.__getitem__(key))))
+        return items or self.coloring('-')
 
     def __str__(self):
         code = self.__getitem__("source")
-        vars_ = self.joiner("variables")
-        flows = self.joiner("flows", self.flow_fmt)
-        m_name = self.coloring(self.name)
-        return (f'Method: {m_name}\n{code}\n'
-                f'Vars:   {vars_}\nFlows:  {flows}')
+        vars_ = self.join_("variables")
+        flows = self.join_("flows", self.flow_fmt)
+        name = self.coloring(self.name)
+        return (f'{code}\n'
+                f'Method: {name}\n'
+                f'Vars:   {vars_}\n'
+                f'Flows:  {flows}')
 
 
 # noinspection PyClassHasNoInit,PyPep8Naming
