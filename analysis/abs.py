@@ -57,7 +57,7 @@ class AbstractAnalyzer(ABC):
             data: analysis results.
         """
         assert self.out_file
-        content = {'input_prog': self.input_file, 'result': data}
+        content = {'input': self.input_file, 'result': data}
         dir_path, _ = os.path.split(self.out_file)
         if len(dir_path) > 0 and not os.path.exists(dir_path):
             os.makedirs(dir_path)
