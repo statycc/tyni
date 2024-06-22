@@ -30,17 +30,17 @@ Same, but visually in two steps:
 The data captured in the analysis phase includes:
 
 ```
- "input_prog"          str                // the analyzed program (file path)
- "result"              dict               // analysis outcomes 
-   "class_name"        dict[str,dict]     // full hierarchical name if nested
-     "identifier"      dict[str,dict]     // method name #1
-       "method"        str                // method source code (for reference) 
-       "flows"         List[(str,str)]    // violating variable pairs (in, out)
-       "variables"     List[str]          // encountered variables, see note below 
-     "identifier"                         // method name #2 
-       ...                                // method data
-   "class_name"                           // another class (if any)
-     ...                                  // class data
+input_prog         # the analyzed program (file path)           str                
+result             # analysis outcomes                          dict                
+  class_name       # full hierarchical name if nested           dict[str,dict]     
+    identifier     # method name #1                             dict[str,dict]     
+      variables    # encountered variables, see note below      List[str]           
+      source       # method source code, for reference          str                 
+      flows        # violating variable pairs (in, out)         List[(str,str)]    
+    identifier     # method name #2 (if any)                  
+      ...          # method data                  
+  class_name       # another class (if any)                  
+    ...            # class data                  
 ```
 
 The variables list does not necessarily contain every variable of the program.
@@ -120,10 +120,10 @@ The results do not show a full security flow matrix, but combining flows and var
 Some helpful commands
 
 ```
-make test   : run unit tests
-make ptest  : try parse all programs
-make clean  : remove generated files (except parser)
-make help   : lists other available commands
+make test     # run unit tests
+make ptest    # try parse all programs
+make clean    # remove generated files (except parser)
+make help     # lists other available commands
 ```
 
 * Running these commands assumes dev requirements are installed.
