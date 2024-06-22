@@ -1,18 +1,11 @@
-from analysis import AbstractAnalyzer
+from analysis import AbstractAnalyzer as Abs
 
 
 def test_default_out_varying_path_depth():
-    out = 'output'
-    depth1 = 1
-    input1 = "home/user/directory/package/filename.java"
-    expect1 = "output/package_filename.json"
-    depth2 = 3
-    input2 = "~/library/Aliasing-ControlFlow-Insecure" \
-             "/program/src/Main.java"
-    expect2 = "output/Aliasing-ControlFlow-Insecure" \
-              "_program_src_Main.json"
-
-    assert AbstractAnalyzer.default_out(input1, out, depth1)\
-           == expect1
-    assert AbstractAnalyzer.default_out(input2, out, depth2) \
-           == expect2
+    in_ = "~/library/Aliasing-ControlFlow-Insecure" \
+          "/program/src/Main.java"
+    assert Abs.default_out(in_, 'output', 0) == "output/Main.json"
+    assert Abs.default_out(in_, 'output', 1) == "output/src_Main.json"
+    assert Abs.default_out(in_, 'output', 3) == \
+           "output/Aliasing-ControlFlow-Insecure" \
+           "_program_src_Main.json"

@@ -95,8 +95,8 @@ The results do not show a full security flow matrix, but combining flows and var
   * Can choose input languages so that comparisons with previous works is possible.
   * Analyzer implementation freedom: can choose any ANTLR target language.
   * Adding OOP concepts later should be implementationally straightforward.
-  * Immediate have a documented specification (grammar) of supported input.
-  * See list of available [grammars](https://github.com/antlr/grammars-v4), if this is of interest.
+  * Immediately have a precise documented specification of supported inputs.
+  * See list of available [grammars](https://github.com/antlr/grammars-v4) if this is of interest.
 * Everything done here should be doable in compiler IR.
   * Parse tree has more information than necessary; the analysis could do with less.
   * Current design makes the analyzer light and isolated for simplicity.
