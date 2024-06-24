@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 class JavaAnalyzer(AbstractAnalyzer):
 
     @staticmethod
-    def lang_match(f_name: str) -> bool:
-        return f_name and f_name.endswith('.java')
+    def lang_match(input_file: str) -> bool:
+        return input_file.endswith('.java')
 
     def parse(self) -> JavaAnalyzer:
         logger.debug(f'parsing {self.input_file}')
