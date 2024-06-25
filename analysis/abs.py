@@ -88,17 +88,18 @@ class AbstractAnalyzer(ABC):
             print(cls)
 
 
-class BaseVisitor:
+class BaseVisitor(ABC):
     """Base class for a parse-tree visitor."""
 
     @staticmethod
-    def wclr(text: str, desc: str = "") -> None:
+    def skipped(ctx, desc: str = "") -> None:
         """Displays a colored warning.
 
         Arguments:
-            text: text to display.
+            ctx: parse tree context.
             desc: optional description.
         """
+        text = BaseVisitor.og_text(ctx)
         desc_ = f" {desc}" if desc else ""
         colored = f'{bcolors.WARNING}{text}{bcolors.ENDC}'
         logger.warning(f'unhandled{desc_} {colored}')
@@ -122,6 +123,8 @@ class BaseVisitor:
 class ResultObj(dict):
     """Base class for a capturing analysis results."""
 
+    LN_LEN = 52
+
     @staticmethod
     def coloring(text: str) -> str:
         """Adds color to text.
@@ -142,13 +145,16 @@ class ClassResult(ResultObj):
         self.name = name
 
     def __str__(self):
-        sep = "\n" + ('-' * 52) + '\n'
+        sep = "\n" + ('-' * self.LN_LEN) + '\n'
         c_name = self.coloring(self.name)
         items = map(str, self.values())
         return f'class {c_name}{sep}{sep.join(items)}'
 
 
 class MethodResult(ResultObj):
+
+    FLW_SEP = "🌢"
+
     def __init__(self, name: str, source: str, flows: list[list[str]],
                  variables: dict[str, str]):
         super().__init__()
@@ -159,12 +165,44 @@ class MethodResult(ResultObj):
 
     @staticmethod
     def flow_fmt(tpl):
-        return MethodResult.coloring(f'{tpl[0]}🌢{tpl[1]}')
+        return MethodResult.coloring(
+            f'{tpl[0]}{MethodResult.FLW_SEP}{tpl[1]}')
+
+    @staticmethod
+    def len_est(value):
+        """estimate required chars to print a value"""
+        if type(value) == str:
+            return len(value)
+        return sum([len(x) for x in value]) + \
+            max(0, len(value) - 1)
+
+    @staticmethod
+    def chunk(vals, max_w, sp):
+        """splits printable values into chunks."""
+        result, fst, acc = [], [], 0
+        while vals:
+            v = vals.pop(0)
+            vl = sp + MethodResult.len_est(v)
+            if acc + vl >= max_w:
+                result.append(fst)
+                fst, acc = [], 0
+            acc, fst = acc + vl, fst + [v]
+        return result +[fst]
 
     def join_(self, key, fmt=None):
+        # line length and left padding
+        w, lpad = self.LN_LEN, 8
+        # item formatting function
         f = fmt or self.coloring
-        items = ", ".join(sorted(map(f, self.__getitem__(key))))
-        return items or self.coloring('-')
+        # separators for items and lines
+        sep1, sep2 = ', ', '\n' + (' ' * lpad)
+        # construct the output
+        sorted_ = sorted(self.__getitem__(key))
+        # split into lines by lenght
+        chunks = self.chunk(sorted_, w - 2 * lpad, len(sep1))
+        # format and join items in each line
+        lines = [sep1.join(map(f, ch)) for ch in chunks]
+        return sep2.join(lines) or self.coloring('-')
 
     def __str__(self):
         code = self.__getitem__("source")
