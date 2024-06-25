@@ -145,15 +145,28 @@ class RecVisitor(ExtVisitor):
     def correction(occ, out):
         return RecVisitor.assign(occ, out)
 
-    def visitVariableDeclarator(
-            self, ctx: JavaParser.VariableDeclaratorContext):
-        # TODO: implement this!
-        super().visitVariableDeclarator(ctx)
-        self.wclr(self.og_text(ctx), 'decl')
-
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
         super().visitMethodCall(ctx)
-        self.wclr(self.og_text(ctx), 'call')
+        self.skipped(ctx, 'call')
+
+    def visitVariableDeclarator(
+            self, ctx: JavaParser.VariableDeclaratorContext):
+        # declaration without init: ignore
+        if ctx.getChildCount() == 1:
+            return
+        # declaration + init
+        if ctx.getChildCount() == 3:
+            # left should only have out-vars (no in-vars)
+            out_v = self.in_vars(ctx.getChild(0))
+            in_v = self.in_vars(ctx.getChild(2))
+            self.merge(self.vars, out_v, in_v)
+            self.merge(self.out_v, out_v)
+            flows = self.assign(in_v, out_v)
+            self.matrix = self.compose(self.matrix, flows)
+            return
+        # fall-through
+        super().visitVariableDeclarator(ctx)
+        self.skipped(ctx, 'decl')
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
         """Statement handlers, grammars/JavaParser.g4#L508"""
@@ -176,13 +189,13 @@ class RecVisitor(ExtVisitor):
         # elif ctx.SYNCHRONIZED():
         #     logger.debug(f'sync: {ctx.getText()}')
         elif ctx.RETURN():
-            return self.wclr(self.og_text(ctx))
+            return self.skipped(ctx)
         # elif ctx.THROW():
         #     logger.debug(f'throw: {ctx.getText()}')
         elif ctx.BREAK():
-            return self.wclr(self.og_text(ctx))
+            return self.skipped(ctx)
         elif ctx.CONTINUE():
-            return self.wclr(self.og_text(ctx))
+            return self.skipped(ctx)
         # elif ctx.YIELD():
         #     logger.debug(f'yield: {ctx.getText()}')
         # elif ctx.SEMI():
@@ -228,6 +241,7 @@ class RecVisitor(ExtVisitor):
                 self.matrix = self.compose(self.matrix, flows)
                 return
 
+        # self.skipped(ctx, 'exp')
         super().visitExpression(ctx)
 
     @staticmethod
