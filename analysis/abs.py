@@ -172,8 +172,7 @@ class MethodResult(ResultObj):
         """estimate required chars to print a value"""
         if isinstance(value, str):
             return len(value)
-        return sum([len(x) for x in value]) + \
-            max(0, len(value) - 1)
+        return sum([len(x) for x in value]) + 1
 
     @staticmethod
     def chunk(vals, max_w, sp):
@@ -190,15 +189,15 @@ class MethodResult(ResultObj):
 
     def join_(self, key, fmt=None):
         # line length and left padding
-        w, lpad = self.LN_LEN, 8
+        w, lpad = self.LN_LEN - 8, 8
         # item formatting function
         f = fmt or self.coloring
         # separators for items and lines
         sep1, sep2 = ', ', '\n' + (' ' * lpad)
         # construct the output
         sorted_ = sorted(self.__getitem__(key))
-        # split into lines by lenght
-        chunks = self.chunk(sorted_, w - lpad, len(sep1))
+        # split into lines by length
+        chunks = self.chunk(sorted_, w, len(sep1))
         # format and join items in each line
         lines = [sep1.join(map(f, ch)) for ch in chunks]
         return sep2.join(lines) or self.coloring('-')
