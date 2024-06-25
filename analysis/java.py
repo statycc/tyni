@@ -146,15 +146,15 @@ class RecVisitor(ExtVisitor):
         return RecVisitor.assign(occ, out)
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
-        super().visitMethodCall(ctx)
+        # super().visitMethodCall(ctx)
         self.skipped(ctx, 'call')
 
     def visitVariableDeclarator(
             self, ctx: JavaParser.VariableDeclaratorContext):
-        # declaration without init: ignore
+        # declaration without init -> ignore
         if ctx.getChildCount() == 1:
             return
-        # declaration + init
+        # declaration with initialization
         if ctx.getChildCount() == 3:
             # left should only have out-vars (no in-vars)
             out_v = self.in_vars(ctx.getChild(0))
@@ -241,7 +241,14 @@ class RecVisitor(ExtVisitor):
                 self.matrix = self.compose(self.matrix, flows)
                 return
 
+        if ctx.getChildCount() == 1 and \
+                ctx.getChild(0).getChildCount() == 4 and \
+                ctx.getChild(0).getChild(1) == '(' and \
+                ctx.getChild(0).getChild(3) == ')':
+            return super().visitExpression(ctx)
+
         # self.skipped(ctx, 'exp')
+        print(ctx.getChild(0).getText())
         super().visitExpression(ctx)
 
     @staticmethod
