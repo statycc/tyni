@@ -152,7 +152,6 @@ class ClassResult(ResultObj):
 
 
 class MethodResult(ResultObj):
-
     FLW_SEP = "🌢"
 
     def __init__(self, name: str, source: str, flows: list[list[str]],
@@ -171,7 +170,7 @@ class MethodResult(ResultObj):
     @staticmethod
     def len_est(value):
         """estimate required chars to print a value"""
-        if type(value) == str:
+        if isinstance(value, str):
             return len(value)
         return sum([len(x) for x in value]) + \
             max(0, len(value) - 1)
@@ -187,7 +186,7 @@ class MethodResult(ResultObj):
                 result.append(fst)
                 fst, acc = [], 0
             acc, fst = acc + vl, fst + [v]
-        return result +[fst]
+        return result + [fst]
 
     def join_(self, key, fmt=None):
         # line length and left padding
