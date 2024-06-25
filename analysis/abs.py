@@ -198,7 +198,7 @@ class MethodResult(ResultObj):
         # construct the output
         sorted_ = sorted(self.__getitem__(key))
         # split into lines by lenght
-        chunks = self.chunk(sorted_, w - 2 * lpad, len(sep1))
+        chunks = self.chunk(sorted_, w - lpad, len(sep1))
         # format and join items in each line
         lines = [sep1.join(map(f, ch)) for ch in chunks]
         return sep2.join(lines) or self.coloring('-')
