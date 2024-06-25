@@ -31,6 +31,7 @@ dev:
 	@source venv/bin/activate;
 	@pip3 install -q -r requirements-dev.txt
 
+
 build: $(P_DIR)
 	@$(foreach p, $(PROGS), javac -d ./$(O_DIR)/ $(P_DIR)/$(p)/*.java ; )
 
@@ -50,12 +51,10 @@ ptest: $(P_DIR)
 		echo "PARSE $(p)" && python3 -m $(ANALYZER) $(P_DIR)/$(p)/$(PNAME).java --parse -l 0 ; )
 
 test:
-	@make dev && pytest --cov=$(ANALYZER) tests --show-capture=no
+	pytest --cov=$(ANALYZER) tests --show-capture=no
 
 lint:
-	@make dev && flake8 $(ANALYZER) \
-	--count --show-source --statistics \
-	--exclude "$(ANALYZER)/parser"
+	flake8 $(ANALYZER) --count --show-source --statistics --exclude "$(ANALYZER)/parser"
 
 clean:
 	@rm -rf $(O_DIR) $(B_DIR) $(DEFAULT_OUT)
