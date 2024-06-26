@@ -214,11 +214,11 @@ class RecVisitor(ExtVisitor):
             return self.__if(ctx)
         if ctx.FOR():
             return self.__for(ctx)
-        if ctx.WHILE():
+        if ctx.WHILE() and not ctx.DO():
             return self.__while(ctx)
-        # elif ctx.DO():
-        #     logger.debug(f'do while: {ctx.getText()}')
-        # elif ctx.TRY():
+        if ctx.WHILE() and ctx.DO():
+            return self.__do(ctx)
+            # elif ctx.TRY():
         #     logger.debug(f'try: {ctx.getText()}')
         # elif ctx.SWITCH():
         #     logger.debug(f'switch: {ctx.getText()}')
@@ -360,5 +360,12 @@ class RecVisitor(ExtVisitor):
         super().visitExpression(ctx)
 
     def __while(self, ctx: JavaParser.StatementContext):
-        loop_res = RecVisitor.corr_stmt(ctx.getChild(1), ctx.getChild(2))
+        cond, body = ctx.getChild(1), ctx.getChild(2)
+        loop_res = RecVisitor.corr_stmt(cond, body)
         self.scoped_merge(loop_res)
+
+    def __do(self, ctx: JavaParser.StatementContext):
+        body, cond = ctx.getChild(1), ctx.getChild(3)
+        loop_res = RecVisitor.corr_stmt(cond, body)
+        self.scoped_merge(loop_res)
+
