@@ -155,7 +155,6 @@ class RecVisitor(ExtVisitor):
         return RecVisitor.assign(occ, out)
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
-        # super().visitMethodCall(ctx)
         self.skipped(ctx, 'call')
 
     def visitVariableDeclarator(
@@ -199,8 +198,8 @@ class RecVisitor(ExtVisitor):
         #     logger.debug(f'sync: {ctx.getText()}')
         elif ctx.RETURN():
             return self.skipped(ctx)
-        # elif ctx.THROW():
-        #     logger.debug(f'throw: {ctx.getText()}')
+        elif ctx.THROW():
+            return self.skipped(ctx)
         elif ctx.BREAK():
             return self.skipped(ctx)
         elif ctx.CONTINUE():
@@ -304,6 +303,7 @@ class RecVisitor(ExtVisitor):
     def __for(self, ctx: JavaParser.StatementContext):
         ctrl, body = ctx.getChild(2), ctx.getChild(4)
         init, cond, updt = [ctrl.getChild(i) for i in [0, 2, 4]]
+        super().visitStatement(init)
         self.corr_stmt(cond, updt)
         self.corr_stmt(cond, body)
 
