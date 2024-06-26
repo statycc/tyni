@@ -119,6 +119,35 @@ class BaseVisitor(ABC):
         start, stop = ctx.start.start, ctx.stop.stop
         return input_stream.getText(start, stop)
 
+    @staticmethod
+    def uniq_name(init, known):
+        """Find a unique replacement name for a variable.
+
+        By "reverse pigeon-hole", this method always finds
+        a unique name. The name is illegal in the input
+        language, so that it is known, such name always
+        came from renaming.
+
+        Arguments:
+            init: initial name.
+            known: list of known names.
+
+        Returns:
+            A new name that is not in the known names.
+        """
+        for i in range(2, len(known) + 2 + 1):
+            candidate = f'{init}{BaseVisitor.u_sub(i)}'
+            if candidate not in known:
+                return candidate
+
+    @staticmethod
+    def u_sub(n: int):
+        """Unicode subscript of a positive int."""
+        assert n >= 0
+        numbers = '₀,₁,₂,₃,₄,₅,₆,₇,₈,₉'.split(',')
+        int_chars = [int(c) for c in str(n)]
+        return ''.join([numbers[i] for i in int_chars])
+
 
 class ResultObj(dict):
     """Base class for a capturing analysis results."""

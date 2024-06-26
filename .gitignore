@@ -2,3 +2,5 @@ __pycache__
 output
 .coverage
 *.iml
+build
+bytecode
