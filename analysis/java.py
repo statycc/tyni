@@ -354,7 +354,6 @@ class RecVisitor(ExtVisitor):
             self.merge(stmt.new_v, lc)
             stmt.matrix = RecVisitor.compose(
                 stmt.matrix, self.assign(rc, lc))
-            print(self.new_v)
             self.scoped_merge(stmt)
             return
 
