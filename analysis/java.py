@@ -165,8 +165,8 @@ class RecVisitor(ExtVisitor):
             self.matrix = self.compose(self.matrix, flows)
             return
         # fall-through
-        super().visitVariableDeclarator(ctx)
         self.skipped(ctx, 'decl')
+        super().visitVariableDeclarator(ctx)
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
         """Statement handlers, grammars/JavaParser.g4#L508"""
@@ -210,6 +210,7 @@ class RecVisitor(ExtVisitor):
 
     def visitExpression(self, ctx: JavaParser.ExpressionContext):
         """Expressions, grammars/JavaParser.g4#L599"""
+        # assignment
         if ctx.getChildCount() == 3:
             op = ctx.getChild(1).getText()
             # Identify assignment from operator form
@@ -228,6 +229,12 @@ class RecVisitor(ExtVisitor):
                 self.matrix = self.compose(self.matrix, flows)
                 return
 
+            # dot operator, e.g., System.out.println
+            if op == ".":
+                return self.skipped(ctx, 'dot-op')
+                # return super().visitExpression(ctx)
+
+        # unary incr/decr
         if ctx.getChildCount() == 2:
             ops = ["++", "--"]
             v1, v2 = ctx.getChild(0), ctx.getChild(1)
@@ -241,14 +248,19 @@ class RecVisitor(ExtVisitor):
                 self.matrix = self.compose(self.matrix, flows)
                 return
 
-        if ctx.getChildCount() == 1 and \
-                ctx.getChild(0).getChildCount() == 4 and \
-                ctx.getChild(0).getChild(1) == '(' and \
-                ctx.getChild(0).getChild(3) == ')':
+        # exp is a method call
+        if ctx.getChildCount() == 1 \
+                and ctx.getChild(0).getChildCount() == 2 \
+                and ctx.getChild(0).getChild(1) \
+                .getChildCount() == 3 \
+                and ctx.getChild(0).getChild(1) \
+                .getChild(0).getText() == '(' \
+                and ctx.getChild(0).getChild(1) \
+                .getChild(2).getText() == ')':
+            # likely a method call -> continue
             return super().visitExpression(ctx)
 
-        # self.skipped(ctx, 'exp')
-        print(ctx.getChild(0).getText())
+        self.skipped(ctx, 'exp')
         super().visitExpression(ctx)
 
     @staticmethod
