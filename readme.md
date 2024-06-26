@@ -87,7 +87,7 @@ The results do not show a full security flow matrix, but combining flows and var
 
 **About design choices**
 
-* No optimizations are applied to the input program; it is analyzed as-is.
+* No optimizations are applied to the input program; it is analyzed as-is (excl. comments).
 * All variables, methods, etc. retain their original identifiers.
 * The Java parser is generated, with [ANTLR](https://www.antlr.org/), from the grammars.
 * Using ANTLR has many benefits for this kind of project:

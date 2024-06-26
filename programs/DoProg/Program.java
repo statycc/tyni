@@ -1,4 +1,4 @@
-package DoProg;
+package doprog;
 
 
 public class Program {

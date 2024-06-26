@@ -193,6 +193,8 @@ class RecVisitor(ExtVisitor):
         if ctx.getChildCount() == 3:
             # left should only have out-vars (no in-vars)
             out_v = self.in_vars(ctx.getChild(0))
+            # TODO: RH could be an object, switch exp, etc.
+            #  need more precision for handling here.
             in_v = self.in_vars(ctx.getChild(2))
             self.merge(self.vars, out_v, in_v)
             self.merge(self.out_v, out_v)
