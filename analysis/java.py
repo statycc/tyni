@@ -129,9 +129,18 @@ class RecVisitor(ExtVisitor):
 
     def __init__(self):
         # all encountered variables
-        self.vars = {}
-        self.out_v = {}
+        self.vars = set()
+        self.out_v = set()
+        self.new_v = set()
         self.matrix = []
+
+    def var_rename(self, old_, new_):
+        # flake8: noqa: E731
+        rename = lambda col: [new_ if v == old_ else v for v in col]
+        self.matrix = [tuple(rename(pair)) for pair in self.matrix]
+        self.vars = set(rename(self.vars))
+        self.out_v = set(rename(self.out_v))
+        self.new_v = set(rename(self.new_v))
 
     @staticmethod
     def merge(target, *args):
@@ -161,6 +170,9 @@ class RecVisitor(ExtVisitor):
             self, ctx: JavaParser.VariableDeclaratorContext):
         # declaration without init -> ignore
         if ctx.getChildCount() == 1:
+            vid = self.in_vars(ctx.getChild(0))
+            self.merge(self.vars, vid)
+            self.merge(self.new_v, vid)
             return
         # declaration with initialization
         if ctx.getChildCount() == 3:
@@ -169,6 +181,7 @@ class RecVisitor(ExtVisitor):
             in_v = self.in_vars(ctx.getChild(2))
             self.merge(self.vars, out_v, in_v)
             self.merge(self.out_v, out_v)
+            self.merge(self.new_v, out_v)
             flows = self.assign(in_v, out_v)
             self.matrix = self.compose(self.matrix, flows)
             return
@@ -287,25 +300,57 @@ class RecVisitor(ExtVisitor):
         logger.debug(f'left in: {rest or "-"}')
         return all_vars.vars, {fst: fst}
 
-    def corr_stmt(self, exp, body):
-        ex_vars = self.occurs(exp)
-        st_body = RecVisitor().visit(body)
-        cr_mat = self.correction(ex_vars, st_body.out_v)
-        self.matrix = self.compose(self.matrix, st_body.matrix, cr_mat)
-        self.merge(self.vars, ex_vars, st_body.vars)
-        self.merge(self.out_v, st_body.out_v)
+    @staticmethod
+    def uniq_name(init, known):
+        """By "reverse pigeon-hole" always finds a unique name."""
+        for i in range(2, len(known) + 2 + 1):
+            # illegal scheme to indicate renaming
+            candidate = f'{i}{init}'
+            if candidate not in known:
+                return candidate
+
+    def scoped_merge(self, child: RecVisitor):
+        """Controlled merge of variables when child has local scope."""
+        # ensure variables in child scope are unique wrt. parent
+        if dup := list(self.vars & child.new_v):
+            logger.debug(f'known: {"|".join(self.vars)} <= {"|".join(dup)}')
+            for d_old in dup:
+                # rename reused identifiers to new
+                d_new = self.uniq_name(d_old, self.vars)
+                child.var_rename(d_old, d_new)
+        # now safely merge scopes
+        assert not self.vars & child.new_v
+        self.merge(self.vars, child.vars)
+        self.merge(self.out_v, child.out_v)
+        self.merge(self.new_v, child.new_v)
+        self.matrix = self.compose(self.matrix, child.matrix)
+        return self
+
+    @staticmethod
+    def corr_stmt(exp, body, pre_visited=None) -> RecordVisitor:
+        """Applies expected correction."""
+        ex_vars = RecVisitor.occurs(exp)
+        stmt = pre_visited or RecVisitor().visit(body)
+        RecVisitor.merge(stmt.vars, ex_vars)
+        corr = RecVisitor.correction(ex_vars, stmt.out_v)
+        stmt.matrix = RecVisitor.compose(stmt.matrix, corr)
+        return stmt
 
     def __if(self, ctx: JavaParser.StatementContext):
-        self.corr_stmt(ctx.getChild(1), ctx.getChild(2))
+        cond = ctx.getChild(1)
+        fst_branch = RecVisitor.corr_stmt(cond, ctx.getChild(2))
         if ctx.getChildCount() > 4:  # else branch
-            self.corr_stmt(ctx.getChild(1), ctx.getChild(4))
+            snd_branch = RecVisitor.corr_stmt(cond, ctx.getChild(4))
+            fst_branch.scoped_merge(snd_branch)
+        self.scoped_merge(fst_branch)
 
     def __for(self, ctx: JavaParser.StatementContext):
-        ctrl, body = ctx.getChild(2), ctx.getChild(4)
-        init, cond, updt = [ctrl.getChild(i) for i in [0, 2, 4]]
-        super().visitStatement(init)
-        self.corr_stmt(cond, updt)
-        self.corr_stmt(cond, body)
+        for_ctrl, body = ctx.getChild(2), ctx.getChild(4)
+        init, cond, updt = [for_ctrl.getChild(i) for i in [0, 2, 4]]
+        stmt = RecVisitor().visit(init).visit(updt).visit(body)
+        stmt = RecVisitor.corr_stmt(cond, None, stmt)
+        self.scoped_merge(stmt)
 
     def __while(self, ctx: JavaParser.StatementContext):
-        self.corr_stmt(ctx.getChild(1), ctx.getChild(2))
+        loop_res = RecVisitor.corr_stmt(ctx.getChild(1), ctx.getChild(2))
+        self.scoped_merge(loop_res)
