@@ -210,38 +210,39 @@ class RecVisitor(ExtVisitor):
         """Statement handlers cf. grammars/JavaParser.g4#L508"""
         if ctx.blockLabel:
             return super().visitStatement(ctx)
-        if ctx.ASSERT():
-            return self.skipped(ctx)
-        if ctx.IF():
+        elif ctx.ASSERT():
+            return BaseVisitor.skipped(ctx)
+        elif ctx.IF():
             return self.__if(ctx)
-        if ctx.FOR():
+        elif ctx.FOR():
             return self.__for(ctx)
-        if ctx.WHILE() and not ctx.DO():
+        elif ctx.WHILE() and not ctx.DO():
             return self.__while(ctx)
-        if ctx.WHILE() and ctx.DO():
+        elif ctx.WHILE() and ctx.DO():
             return self.__do(ctx)
-            # elif ctx.TRY():
-        #     logger.debug(f'try: {ctx.getText()}')
-        # elif ctx.SWITCH():
-        #     logger.debug(f'switch: {ctx.getText()}')
+        elif ctx.TRY():
+            return BaseVisitor.skipped(ctx)
+        elif ctx.SWITCH():
+            return self.__switch(ctx)
         elif ctx.SYNCHRONIZED():
-            return self.skipped(ctx)
+            return BaseVisitor.skipped(ctx)
         elif ctx.RETURN():
-            return self.skipped(ctx)
+            return BaseVisitor.skipped(ctx)
         elif ctx.THROW():
-            return self.skipped(ctx)
+            return BaseVisitor.skipped(ctx)
         elif ctx.BREAK():
-            return self.skipped(ctx)
+            return BaseVisitor.skipped(ctx)
         elif ctx.CONTINUE():
-            return self.skipped(ctx)
-        # elif ctx.YIELD():
-        #     logger.debug(f'yield: {ctx.getText()}')
+            return BaseVisitor.skipped(ctx)
+        elif ctx.YIELD():
+            return BaseVisitor.skipped(ctx)
         # elif ctx.SEMI():
         #     logger.debug(f'semi: {ctx.getText()}')
         # elif ctx.statementExpression:
         #     logger.debug(f'stmt_exp: {ctx.getText()}')
         # elif ctx.switchExpression():
-        #     logger.debug(f'switch_exp: {ctx.getText()}')
+        #     print("[!] switch expression")
+        #     return self.__switch_exp(ctx)
         # elif ctx.identifierLabel:
         #     logger.debug(f'id_label: {ctx.getText()}')
         super().visitStatement(ctx)
@@ -333,6 +334,19 @@ class RecVisitor(ExtVisitor):
             fst_branch.scoped_merge(snd_branch)
         self.scoped_merge(fst_branch)
 
+    def __switch(self, ctx: JavaParser.StatementContext):
+        cond, n_cases = ctx.getChild(1), ctx.getChildCount() - 1
+        if (f_case := ctx.getChild(3)).getChildCount() == 2:
+            lbl, body = f_case.getChild(0), f_case.getChild(1)
+            stmt = RecVisitor.corr_stmt(cond, body)
+            for cn in range(4, n_cases):
+                cc = ctx.getChild(cn)
+                lbl, body = cc.getChild(0), cc.getChild(1)
+                BaseVisitor.skipped(body)
+
+    def __switch_exp(self, ctx: JavaParser.StatementContext):
+        print('switch exp kids', ctx.getChildCount())
+
     def __for(self, ctx: JavaParser.StatementContext):
         for_ctrl, body = ctx.getChild(2), ctx.getChild(4)
 
@@ -370,4 +384,3 @@ class RecVisitor(ExtVisitor):
         body, cond = ctx.getChild(1), ctx.getChild(3)
         loop_res = RecVisitor.corr_stmt(cond, body)
         self.scoped_merge(loop_res)
-
