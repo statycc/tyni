@@ -1,5 +1,6 @@
-from analysis import BaseVisitor, AbstractAnalyzer as Abs
 from pytest import raises
+
+from analysis import BaseVisitor, AbstractAnalyzer as Abs
 
 
 def test_default_out_varying_path_depth():

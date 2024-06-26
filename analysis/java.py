@@ -3,10 +3,9 @@ from __future__ import annotations
 import logging
 import operator
 import sys
+from antlr4 import FileStream, CommonTokenStream
 from functools import reduce
 from itertools import product
-
-from antlr4 import FileStream, CommonTokenStream
 
 from analysis import AbstractAnalyzer, ClassResult, MethodResult
 from analysis import BaseVisitor
