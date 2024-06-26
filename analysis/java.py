@@ -334,10 +334,31 @@ class RecVisitor(ExtVisitor):
 
     def __for(self, ctx: JavaParser.StatementContext):
         for_ctrl, body = ctx.getChild(2), ctx.getChild(4)
-        init, cond, updt = [for_ctrl.getChild(i) for i in [0, 2, 4]]
-        stmt = RecVisitor().visit(init).visit(updt).visit(body)
-        stmt = RecVisitor.corr_stmt(cond, None, stmt)
-        self.scoped_merge(stmt)
+
+        # C-style 3-part for loop
+        if for_ctrl.getChildCount() > 4:
+            init, cond, updt = [for_ctrl.getChild(i) for i in [0, 2, 4]]
+            stmt = RecVisitor().visit(init).visit(updt).visit(body)
+            stmt = RecVisitor.corr_stmt(cond, None, stmt)
+            self.scoped_merge(stmt)
+            return
+
+        # foreach-style loop, over an iterable
+        if for_ctrl.getChildCount() == 1:
+            cond = for_ctrl.getChild(0)
+            iter, src = cond.getChild(1), cond.getChild(3)
+            stmt = RecVisitor.corr_stmt(iter, body)
+            # control flow from iterable to iterator
+            lc, rc = RecVisitor.occurs(iter), RecVisitor.occurs(src)
+            self.merge(stmt.vars, lc, rc)
+            self.merge(stmt.new_v, lc)
+            stmt.matrix = RecVisitor.compose(
+                stmt.matrix, self.assign(rc, lc))
+            self.scoped_merge(stmt)
+            return
+
+        self.skipped(ctx, 'for')
+        super().visitExpression(ctx)
 
     def __while(self, ctx: JavaParser.StatementContext):
         loop_res = RecVisitor.corr_stmt(ctx.getChild(1), ctx.getChild(2))
