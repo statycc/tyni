@@ -62,6 +62,15 @@ class IdVisitor(ExtVisitor):
     def vars(self):
         return dict([(x, x) for x in self.flat])
 
+    def visitExpression(self, ctx: JavaParser.ExpressionContext):
+        # if exp is a bin-op, and the op is dot-notation,
+        # then process only the leftmost identifier.
+        if (ctx.getChildCount() == 3 and
+                ctx.getChild(1).getText() == '.'):
+            self.visitExpression(ctx.getChild(0))
+        else:
+            super().visitExpression(ctx)
+
     def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
         super().visitIdentifier(ctx)
         self.flat.append(ctx.getText())
