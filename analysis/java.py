@@ -299,14 +299,6 @@ class RecVisitor(ExtVisitor):
         logger.debug(f'left in: {rest or "-"}')
         return all_vars.vars, {fst: fst}
 
-    @staticmethod
-    def uniq_name(init, known):
-        """By "reverse pigeon-hole" always finds a unique name."""
-        for i in range(2, len(known) + 2 + 1):
-            candidate = f'{init}{RecVisitor.u_sub(i)}'
-            if candidate not in known:
-                return candidate
-
     def scoped_merge(self, child: RecVisitor):
         """Controlled merge of variables when child has local scope."""
         # ensure variables in child scope are unique wrt. parent
