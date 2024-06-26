@@ -3,8 +3,7 @@ package LocalScope;
 public class Program {
 
     public static void main(String[] args) {
-        int result = example(5, 8, 11);
-        System.out.println(result);
+        System.out.println(example(5, 8, 11));
     }
 
     /**

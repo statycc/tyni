@@ -94,3 +94,29 @@ def test_mvt_kernel():
     assert ('y1', 'x1') in flows
     assert ('y2', 'x2') in flows
     assert len(flows) == 13
+
+
+def test_local_scoping():
+    vrs, flows = helper(
+        'LocalScope', 'Program', 'example')
+    assert (set(vrs) == {
+        'a', 'b', 'c', 'x', 'y', 'z', 'i', 'i₂', 'i₃', 'j', 'j₂', 'j₃'})
+    assert ('a', 'i') in flows
+    assert ('a', 'j') in flows
+    assert ('a', 'y') in flows
+    assert ('b', 'i₂') in flows
+    assert ('b', 'j₂') in flows
+    assert ('b', 'x') in flows
+    assert ('c', 'j₃') in flows
+    assert ('i', 'j') in flows
+    assert ('i', 'y') in flows
+    assert ('i₂', 'j₂') in flows
+    assert ('i₂', 'x') in flows
+    assert ('i₃', 'y') in flows
+    assert ('j', 'y') in flows
+    assert ('j₂', 'x') in flows
+    assert ('j₃', 'i₃') in flows
+    assert ('j₃', 'y') in flows
+    assert ('x', 'z') in flows
+    assert ('y', 'z') in flows
+    assert len(flows) == 18

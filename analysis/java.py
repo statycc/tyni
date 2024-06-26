@@ -253,7 +253,6 @@ class RecVisitor(ExtVisitor):
             # dot operator, e.g., System.out.println
             if op == ".":
                 return self.skipped(ctx, 'dot-op')
-                # return super().visitExpression(ctx)
 
         # unary incr/decr
         if ctx.getChildCount() == 2:
@@ -304,8 +303,7 @@ class RecVisitor(ExtVisitor):
     def uniq_name(init, known):
         """By "reverse pigeon-hole" always finds a unique name."""
         for i in range(2, len(known) + 2 + 1):
-            # illegal scheme to indicate renaming
-            candidate = f'{i}{init}'
+            candidate = f'{init}{RecVisitor.u_sub(i)}'
             if candidate not in known:
                 return candidate
 
@@ -313,9 +311,7 @@ class RecVisitor(ExtVisitor):
         """Controlled merge of variables when child has local scope."""
         # ensure variables in child scope are unique wrt. parent
         if dup := list(self.vars & child.new_v):
-            logger.debug(f'known: {"|".join(self.vars)} <= {"|".join(dup)}')
             for d_old in dup:
-                # rename reused identifiers to new
                 d_new = self.uniq_name(d_old, self.vars)
                 child.var_rename(d_old, d_new)
         # now safely merge scopes
