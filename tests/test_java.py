@@ -8,7 +8,7 @@ def helper(prog, cls_name, method):
 
 
 def test_ifc_prog1():
-    vrs, flows = helper('IFCprog1', 'Program', 'example')
+    vrs, flows = helper('ifcprog1', 'Program', 'example')
     assert vrs == ['x', 'y', 'z']
     assert ('x', 'y') in flows
     assert ('y', 'x') in flows
@@ -18,7 +18,7 @@ def test_ifc_prog1():
 
 
 def test_ifc_prog2a():
-    vrs, flows = helper('IFCprog2a', 'Program', 'example')
+    vrs, flows = helper('ifcprog2a', 'Program', 'example')
     assert vrs == ['w', 'x', 'y', 'z']
     assert ('x', 'w') in flows
     assert ('y', 'x') in flows
@@ -27,7 +27,7 @@ def test_ifc_prog2a():
 
 
 def test_ifc_prog2b():
-    vrs, flows = helper('IFCprog2b', 'Program', 'example')
+    vrs, flows = helper('ifcprog2b', 'Program', 'example')
     assert vrs == ['w', 'x', 'y', 'z']
     assert ('w', 'z') in flows
     assert ('x', 'z') in flows
@@ -39,7 +39,7 @@ def test_ifc_prog2b():
 
 
 def test_ifc_prog3():
-    vrs, flows = helper('IFCprog3', 'Program', 'example')
+    vrs, flows = helper('ifcprog3', 'Program', 'example')
     assert vrs == ['i', 'j', 's1', 's2', 't']
     assert ('t', 'i') in flows
     assert ('j', 'i') in flows
@@ -53,7 +53,7 @@ def test_ifc_prog3():
 
 
 def test_ifc_ex1():
-    vrs, flows = helper('IFCex1', 'Program', 'example')
+    vrs, flows = helper('ifcex1', 'Program', 'example')
     assert vrs == ['h', 'y', 'z']
     assert ('h', 'y') in flows
     assert ('y', 'z') in flows
@@ -62,7 +62,7 @@ def test_ifc_ex1():
 
 
 def test_ifc_ex2():
-    vrs, flows = helper('IFCex2', 'Program', 'example')
+    vrs, flows = helper('ifcex2', 'Program', 'example')
     assert vrs == ['x', 'y', 'z']
     assert ('y', 'x') in flows
     assert ('z', 'x') in flows
@@ -70,7 +70,7 @@ def test_ifc_ex2():
 
 
 def test_sql_injection():
-    vrs, flows = helper('SqlInjection', 'Program', 'example')
+    vrs, flows = helper('sqlinject', 'Program', 'example')
     assert vrs == ['query', 'request', 'sb1', 'sb2', 'user']
     assert ('request', 'user') in flows
     assert ('user', 'sb1') in flows
@@ -79,7 +79,7 @@ def test_sql_injection():
 
 
 def test_mvt_kernel():
-    vrs, flows = helper('MvtKernel', 'Program', 'mvt')
+    vrs, flows = helper('mvt', 'Program', 'mvt')
     assert vrs == 'A,N,i,j,x1,x2,y1,y2'.split(',')
     assert ('i', 'j') in flows
     assert ('N', 'j') in flows
@@ -98,7 +98,7 @@ def test_mvt_kernel():
 
 def test_local_scoping():
     vrs, flows = helper(
-        'LocalScope', 'Program', 'example')
+        'localscope', 'Program', 'example')
     assert (set(vrs) == {
         'a', 'b', 'c', 'x', 'y', 'z', 'i', 'i₂', 'i₃', 'j', 'j₂', 'j₃'})
     assert ('a', 'i') in flows
