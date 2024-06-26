@@ -8,12 +8,16 @@ public class Program {
     }
 
     /**
-     * A "foreach" style loop construction.
+     * A "foreach"-style loops.
      */
     static protected void mul(int[] arr, int n) {
-        for (int x : arr){
+        for (int x : arr) {
             int t = x * n;
             System.out.println(t);
+        }
+        for (int x : arr) {
+            for (int x1 : arr)
+                System.out.println(x * x1);
         }
     }
 }

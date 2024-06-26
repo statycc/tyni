@@ -334,6 +334,7 @@ class RecVisitor(ExtVisitor):
 
     def __for(self, ctx: JavaParser.StatementContext):
         for_ctrl, body = ctx.getChild(2), ctx.getChild(4)
+
         # C-style 3-part for loop
         if for_ctrl.getChildCount() > 4:
             init, cond, updt = [for_ctrl.getChild(i) for i in [0, 2, 4]]
@@ -347,11 +348,13 @@ class RecVisitor(ExtVisitor):
             cond = for_ctrl.getChild(0)
             iter, src = cond.getChild(1), cond.getChild(3)
             stmt = RecVisitor.corr_stmt(iter, body)
-            # also: a control flows from iterable to iterator
+            # control flow from iterable to iterator
             lc, rc = RecVisitor.occurs(iter), RecVisitor.occurs(src)
-            self.merge(stmt.vars, rc)
+            self.merge(stmt.vars, lc, rc)
+            self.merge(stmt.new_v, lc)
             stmt.matrix = RecVisitor.compose(
                 stmt.matrix, self.assign(rc, lc))
+            print(self.new_v)
             self.scoped_merge(stmt)
             return
 
