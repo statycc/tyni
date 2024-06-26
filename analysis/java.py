@@ -162,6 +162,22 @@ class RecVisitor(ExtVisitor):
     def correction(occ, out):
         return RecVisitor.assign(occ, out)
 
+    @staticmethod
+    def in_vars(ctx: JavaParser.ExpressionContext):
+        return IdVisitor().visit(ctx).vars
+
+    @staticmethod
+    def in_out_vars(ctx: JavaParser.ExpressionContext):
+        # find all variables in the expression
+        all_vars = IdVisitor().visit(ctx)
+        # the left-most is the out-variable
+        fst = all_vars.flat.pop(0)
+        # all others are in-variables
+        rest = ', '.join(all_vars.flat)
+        logger.debug(f'left out: {fst}')
+        logger.debug(f'left in: {rest or "-"}')
+        return all_vars.vars, {fst: fst}
+
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
         self.skipped(ctx, 'call')
 
@@ -189,16 +205,16 @@ class RecVisitor(ExtVisitor):
         super().visitVariableDeclarator(ctx)
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
-        """Statement handlers, grammars/JavaParser.g4#L508"""
-        # if ctx.blockLabel:
-        #     logger.debug(f'block: {ctx.getText()}')
-        # elif ctx.ASSERT():
-        #     logger.debug(f'assert: {ctx.getText()}')
+        """Statement handlers cf. grammars/JavaParser.g4#L508"""
+        if ctx.blockLabel:
+            return super().visitStatement(ctx)
+        if ctx.ASSERT():
+            return self.skipped(ctx)
         if ctx.IF():
             return self.__if(ctx)
-        elif ctx.FOR():
+        if ctx.FOR():
             return self.__for(ctx)
-        elif ctx.WHILE():
+        if ctx.WHILE():
             return self.__while(ctx)
         # elif ctx.DO():
         #     logger.debug(f'do while: {ctx.getText()}')
@@ -206,8 +222,8 @@ class RecVisitor(ExtVisitor):
         #     logger.debug(f'try: {ctx.getText()}')
         # elif ctx.SWITCH():
         #     logger.debug(f'switch: {ctx.getText()}')
-        # elif ctx.SYNCHRONIZED():
-        #     logger.debug(f'sync: {ctx.getText()}')
+        elif ctx.SYNCHRONIZED():
+            return self.skipped(ctx)
         elif ctx.RETURN():
             return self.skipped(ctx)
         elif ctx.THROW():
@@ -229,7 +245,7 @@ class RecVisitor(ExtVisitor):
         super().visitStatement(ctx)
 
     def visitExpression(self, ctx: JavaParser.ExpressionContext):
-        """Expressions, grammars/JavaParser.g4#L599"""
+        """Expressions cf. grammars/JavaParser.g4#L599"""
         # assignment
         if ctx.getChildCount() == 3:
             op = ctx.getChild(1).getText()
@@ -281,22 +297,6 @@ class RecVisitor(ExtVisitor):
 
         self.skipped(ctx, 'exp')
         super().visitExpression(ctx)
-
-    @staticmethod
-    def in_vars(ctx: JavaParser.ExpressionContext):
-        return IdVisitor().visit(ctx).vars
-
-    @staticmethod
-    def in_out_vars(ctx: JavaParser.ExpressionContext):
-        # find all variables in the expression
-        all_vars = IdVisitor().visit(ctx)
-        # the left-most is the out-variable
-        fst = all_vars.flat.pop(0)
-        # all others are in-variables
-        rest = ', '.join(all_vars.flat)
-        logger.debug(f'left out: {fst}')
-        logger.debug(f'left in: {rest or "-"}')
-        return all_vars.vars, {fst: fst}
 
     def scoped_merge(self, child: RecVisitor):
         """Controlled merge of variables when child has local scope."""
