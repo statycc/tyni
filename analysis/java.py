@@ -16,6 +16,70 @@ from analysis.parser.JavaParserVisitor import JavaParserVisitor
 logger = logging.getLogger(__name__)
 
 
+class JavaAnalyzer(AbstractAnalyzer):
+    """Analyzer for Java programming language.
+
+    Example:
+
+    Parses and analyzes program, where program is some .java file.
+
+    ```python
+    JavaAnalyzer(program).parse().run()
+    ```
+    """
+
+    @staticmethod
+    def lang_match(input_file: str) -> bool:
+        """Analyzes any file with .java extension.
+
+        This is optimistic, since the grammar of the parser
+        is Java-version specific.
+        """
+        return input_file.endswith('.java')
+
+    def parse(self) -> JavaAnalyzer:
+        """Attempt to parse the input file.
+
+        This method terminates running process if parse fails.
+
+        Raises:
+            AssertionError: if input file is not analyzable.
+
+        Returns:
+            The analyzer.
+        """
+        assert JavaAnalyzer.lang_match(self.input_file)
+        logger.debug(f'parsing {self.input_file}')
+        input_stream = FileStream(
+            self.input_file, encoding="UTF-8")
+        lexer = JavaLexer(input_stream)
+        stream = CommonTokenStream(lexer)
+        parser = JavaParser(stream)
+        if parser.getNumberOfSyntaxErrors() > 0:
+            return sys.exit(1)
+        logger.debug("parsed successfully")
+        self.tree = parser.compilationUnit()
+        return self
+
+    def run(self) -> dict:
+        """Performs analysis on the input file.
+        This requires parse has already been performed.
+
+        Raises:
+            AssertionError: if input has not been parsed successfully.
+
+        Returns:
+            A dictionary of analysis results.
+        """
+        assert self.tree
+        result = ClassVisitor().visit(self.tree).result
+        if self.out_file:
+            self.save(result)
+        else:
+            self.pretty_print(result)
+        return result
+
+
 class ExtVisitor(BaseVisitor, JavaParserVisitor):
     """Shared behavior for all Java visitors."""
 
@@ -444,67 +508,3 @@ class IdVisitor(ExtVisitor):
     def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
         super().visitIdentifier(ctx)
         self.flat.append(ctx.getText())
-
-
-class JavaAnalyzer(AbstractAnalyzer):
-    """Analyzer for Java programming language.
-
-    Example:
-
-    Parses and analyzes program, where program is some .java file.
-
-    ```python
-    JavaAnalyzer(program).parse().run()
-    ```
-    """
-
-    @staticmethod
-    def lang_match(input_file: str) -> bool:
-        """Analyzes any file with .java extension.
-
-        This is optimistic, since the grammar of the parser
-        is Java-version specific.
-        """
-        return input_file.endswith('.java')
-
-    def parse(self) -> JavaAnalyzer:
-        """Attempt to parse the input file.
-
-        This method terminates running process if parse fails.
-
-        Raises:
-            AssertionError: if input file is not analyzable.
-
-        Returns:
-            The analyzer.
-        """
-        assert JavaAnalyzer.lang_match(self.input_file)
-        logger.debug(f'parsing {self.input_file}')
-        input_stream = FileStream(
-            self.input_file, encoding="UTF-8")
-        lexer = JavaLexer(input_stream)
-        stream = CommonTokenStream(lexer)
-        parser = JavaParser(stream)
-        if parser.getNumberOfSyntaxErrors() > 0:
-            return sys.exit(1)
-        logger.debug("parsed successfully")
-        self.tree = parser.compilationUnit()
-        return self
-
-    def run(self) -> dict:
-        """Performs analysis on the input file.
-        This requires parse has already been performed.
-
-        Raises:
-            AssertionError: if input has not been parsed successfully.
-
-        Returns:
-            A dictionary of analysis results.
-        """
-        assert self.tree
-        result = ClassVisitor().visit(self.tree).result
-        if self.out_file:
-            self.save(result)
-        else:
-            self.pretty_print(result)
-        return result
