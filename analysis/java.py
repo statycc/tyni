@@ -17,7 +17,16 @@ logger = logging.getLogger(__name__)
 
 
 class JavaAnalyzer(AbstractAnalyzer):
-    """Analyzer for Java programming language."""
+    """Analyzer for Java programming language.
+
+    Example:
+
+    Parses and analyzes program, where program is some .java file.
+
+    ```python
+    JavaAnalyzer(program).parse().run()
+    ```
+    """
 
     @staticmethod
     def lang_match(input_file: str) -> bool:
@@ -29,7 +38,17 @@ class JavaAnalyzer(AbstractAnalyzer):
         return input_file.endswith('.java')
 
     def parse(self) -> JavaAnalyzer:
-        """Attempt to parse the input file."""
+        """Attempt to parse the input file.
+
+        This method terminates running process if parse fails.
+
+        Raises:
+            AssertionError: if input file is not analyzable.
+
+        Returns:
+            The analyzer.
+        """
+        assert JavaAnalyzer.lang_match(self.input_file)
         logger.debug(f'parsing {self.input_file}')
         input_stream = FileStream(
             self.input_file, encoding="UTF-8")
@@ -45,6 +64,9 @@ class JavaAnalyzer(AbstractAnalyzer):
     def run(self) -> dict:
         """Performs analysis on the input file.
         This requires parse has already been performed.
+
+        Raises:
+            AssertionError: if input has not been parsed successfully.
 
         Returns:
             A dictionary of analysis results.
@@ -117,13 +139,18 @@ class RecVisitor(ExtVisitor):
     """Recursively process method body"""
 
     def __init__(self):
-        # all encountered variables
-        self.vars = set()
-        self.out_v = set()
-        self.new_v = set()
-        self.matrix = []
+        self.vars = set()  # all encountered variables
+        self.out_v = set()  # encountered out variables
+        self.new_v = set()  # encountered declarations
+        self.matrix: List[Tuple(str, str)] = []  # data flows (in, out)
 
-    def subst(self, old_, new_):
+    def subst(self, old_: str, new_: str):
+        """Substitutes variable name in place.
+
+        Arguments:
+            old_: current name
+            new_: the name after substitution.
+        """
         # flake8: noqa: E731
         rename = lambda col: [new_ if v == old_ else v for v in col]
         self.matrix = [tuple(rename(pair)) for pair in self.matrix]
@@ -132,7 +159,7 @@ class RecVisitor(ExtVisitor):
         self.new_v = set(rename(self.new_v))
 
     @staticmethod
-    def merge(target, *args):
+    def merge(target: set, *args: set):
         [target.update(m) for m in args]
 
     @staticmethod
