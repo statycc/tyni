@@ -185,12 +185,13 @@ class RecVisitor(ExtVisitor):
             Set of in-variables.
         """
         if (cc := ctx.getChildCount()) == 1:
+            # base case / terminal
             if ctx.getChild(0).getChildCount() == 0:
                 return RecVisitor.occurs(ctx)
             else:
                 return RecVisitor.rvars(ctx.getChild(0))
 
-        # unary expressions
+        # unary
         elif cc == 2:
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
@@ -212,13 +213,21 @@ class RecVisitor(ExtVisitor):
             lc, op, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             if (opt := op.getText()) == ".":
                 return RecVisitor.rvars(lc)  # take leftmost
-            elif opt in '==,+,-,*,/,%,&&,||,^,>>,<<'.split(','):
-                return RecVisitor.occurs(lc) | RecVisitor.rvars(rc)
+            # see JavaLexer L#155
+            elif opt in '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%'.split(','):
+                return RecVisitor.rvars(lc) | RecVisitor.rvars(rc)
             elif lc.getText() == '(' and rc.getText() == ')':
                 return RecVisitor.rvars(op)
             # something else
             RecVisitor.skipped(ctx, 'rvars-3')
             return RecVisitor.occurs(ctx)
+
+        # ternary
+        elif cc == 5:
+            c0, c1, c2, c3, c4 = [ctx.getChild(n) for n in range(5)]
+            if c1.getText() == "?" and c3.getText() == ":":
+                return (RecVisitor.rvars(c0) | RecVisitor.rvars(c2) |
+                        RecVisitor.rvars(c4))
 
         # min 4-part expressions: arrays and ???
         c1, cn = ctx.getChild(1), ctx.getChild(cc - 1)

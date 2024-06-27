@@ -10,7 +10,7 @@ public class Program {
         int[] y1 = new int[]{1, 6, 4};
         int[] y2 = new int[]{3, 5, 3};
         int[][] A = new int[][]{{1, 1, 1}, {2, 2, 2}, {3, 3, 3}};
-        int N = x1.length;
+        int N = x2.length < x1.length ? x2.length : x1.length;
         mvt(N, x1, x2, y1, y2, A);
         System.out.println(Arrays.toString(x1));
         System.out.println(Arrays.toString(x2));
