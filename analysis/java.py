@@ -46,33 +46,11 @@ class JavaAnalyzer(AbstractAnalyzer):
 
 
 class ExtVisitor(BaseVisitor, JavaParserVisitor):
+    """Shared behavior for all visitors."""
+
     def visit(self, tree):
         super().visit(tree)
         return self
-
-
-class IdVisitor(ExtVisitor):
-    """Finds identifiers in a parse tree"""
-
-    def __init__(self):
-        self.flat = []
-
-    @property
-    def vars(self):
-        return dict([(x, x) for x in self.flat])
-
-    def visitExpression(self, ctx: JavaParser.ExpressionContext):
-        # if exp is a bin-op, and the op is dot-notation,
-        # then process only the leftmost identifier.
-        if (ctx.getChildCount() == 3 and
-                ctx.getChild(1).getText() == '.'):
-            self.visitExpression(ctx.getChild(0))
-        else:
-            super().visitExpression(ctx)
-
-    def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
-        super().visitIdentifier(ctx)
-        self.flat.append(ctx.getText())
 
 
 class ClassVisitor(ExtVisitor):
@@ -108,19 +86,18 @@ class ClassVisitor(ExtVisitor):
         body = ctx.getChild(ctx.getChildCount() - 1)
         logger.debug(f'class: {self.name}')
         result = ClassVisitor(parent=self).visit(body).result
-        self.record(self.root, self.name,
-                    ClassResult(self.name, result))
+        cls = ClassResult(self.name, result)
+        self.record(self.root, self.name, cls)
 
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
         name = ctx.identifier().getText()
         logger.debug(f'method: {name}')
         prog = RecVisitor().visit(ctx.methodBody())
+        mat = self.mat_format(prog.matrix)
+        mth = MethodResult(name, self.og_text(ctx), mat, prog.vars)
         # noinspection PyTypeChecker
-        self.record(self, name, MethodResult(
-            name, self.og_text(ctx),
-            self.mat_format(prog.matrix),
-            prog.vars))
+        self.record(self, name, mth)
 
 
 class RecVisitor(ExtVisitor):
@@ -133,7 +110,7 @@ class RecVisitor(ExtVisitor):
         self.new_v = set()
         self.matrix = []
 
-    def var_rename(self, old_, new_):
+    def subst(self, old_, new_):
         # flake8: noqa: E731
         rename = lambda col: [new_ if v == old_ else v for v in col]
         self.matrix = [tuple(rename(pair)) for pair in self.matrix]
@@ -174,8 +151,9 @@ class RecVisitor(ExtVisitor):
         fst = all_vars.flat.pop(0)
         # all others are in-variables
         rest = ', '.join(all_vars.flat)
-        logger.debug(f'left out: {fst}')
-        logger.debug(f'left in: {rest or "-"}')
+        logger.debug(f'left/out: {fst}')
+        if rest:
+            logger.debug(f'left in: {rest or "-"}')
         return all_vars.vars, {fst: fst}
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
@@ -306,7 +284,7 @@ class RecVisitor(ExtVisitor):
         if dup := list(self.vars & child.new_v):
             for d_old in dup:
                 d_new = self.uniq_name(d_old, self.vars)
-                child.var_rename(d_old, d_new)
+                child.subst(d_old, d_new)
         # now safely merge scopes
         assert not self.vars & child.new_v
         self.merge(self.vars, child.vars)
@@ -371,3 +349,26 @@ class RecVisitor(ExtVisitor):
         loop_res = RecVisitor.corr_stmt(cond, body)
         self.scoped_merge(loop_res)
 
+
+class IdVisitor(ExtVisitor):
+    """Finds identifiers in a parse tree"""
+
+    def __init__(self):
+        self.flat = []
+
+    @property
+    def vars(self):
+        return dict([(x, x) for x in self.flat])
+
+    def visitExpression(self, ctx: JavaParser.ExpressionContext):
+        # if exp is a bin-op, and the op is dot-notation,
+        # then process only the leftmost identifier.
+        if (ctx.getChildCount() == 3 and
+                ctx.getChild(1).getText() == '.'):
+            self.visitExpression(ctx.getChild(0))
+        else:
+            super().visitExpression(ctx)
+
+    def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
+        super().visitIdentifier(ctx)
+        self.flat.append(ctx.getText())

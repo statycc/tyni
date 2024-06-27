@@ -4,4 +4,4 @@ output
 *.iml
 build
 bytecode
-programs/out
+out/
