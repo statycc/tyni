@@ -1,0 +1,7 @@
+# see: https://pytest-cov.readthedocs.io/en/latest/config.html
+
+[run]
+omit =
+    # omit everything in parser
+    */parser/*
+

@@ -21,7 +21,7 @@ class AbstractAnalyzer(ABC):
         self.tree = None
 
     @staticmethod
-    def lang_match(input_file: str) -> bool:
+    def lang_match(input_file: str) -> bool:  # pragma: no cover
         """Determines if analyzer can handle input file.
 
         Arguments:
@@ -33,7 +33,7 @@ class AbstractAnalyzer(ABC):
         return False
 
     @abstractmethod
-    def parse(self) -> AbstractAnalyzer:
+    def parse(self) -> AbstractAnalyzer:  # pragma: no cover
         """Parses the input file.
 
         Returns:
@@ -42,7 +42,7 @@ class AbstractAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def run(self) -> dict:
+    def run(self) -> dict:  # pragma: no cover
         """Analyzes input file.
 
         Returns:
@@ -83,7 +83,8 @@ class AbstractAnalyzer(ABC):
         return os.path.join(out_dir, f"{file_name}.json")
 
     @staticmethod
-    def pretty_print(result):
+    def pretty_print(result) -> None:
+        """Displays neatly analysis results."""
         for cls in result.values():
             print(cls)
 
@@ -120,7 +121,7 @@ class BaseVisitor(ABC):
         return input_stream.getText(start, stop)
 
     @staticmethod
-    def uniq_name(init, known):
+    def uniq_name(init, known) -> str:
         """Find a unique replacement name for a variable.
 
         By "reverse pigeon-hole", this method always finds
@@ -141,8 +142,15 @@ class BaseVisitor(ABC):
                 return candidate
 
     @staticmethod
-    def u_sub(n: int):
-        """Unicode subscript of a positive int."""
+    def u_sub(n: int) -> str:
+        """Unicode subscript of a positive int.
+
+        Arguments:
+            n: positive integer
+
+        Returns:
+            Same integer as text (in subscript).
+        """
         assert n >= 0
         numbers = '₀,₁,₂,₃,₄,₅,₆,₇,₈,₉'.split(',')
         int_chars = [int(c) for c in str(n)]
@@ -168,6 +176,8 @@ class ResultObj(dict):
 
 
 class ClassResult(ResultObj):
+    """Stores analysis result of a single class."""
+
     def __init__(self, name: str, methods: dict[MethodResult]):
         super().__init__()
         self.update(methods)
@@ -181,10 +191,12 @@ class ClassResult(ResultObj):
 
 
 class MethodResult(ResultObj):
+    """Stores analysis result of a class method."""
+
     FLW_SEP = "🌢"
 
     def __init__(self, name: str, source: str, flows: list[list[str]],
-                 variables: dict[str, str]):
+                 variables: set[str]):
         super().__init__()
         super().__setitem__('variables', list(variables))
         super().__setitem__('source', source)

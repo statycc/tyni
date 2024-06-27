@@ -1,18 +1,19 @@
+import json
+import os
+
 from pytest import raises
 
 from analysis import BaseVisitor, AbstractAnalyzer as Abs
+from analysis import JavaAnalyzer
 
 
 def test_default_out_varying_path_depth():
-    in_ = "~/library/Aliasing-ControlFlow-Insecure" \
-          "/program/src/Main.java"
-    assert (Abs.default_out(in_, 'output', 0)
-            == "output/Main.json")
-    assert (Abs.default_out(in_, 'output', 1)
-            == "output/src_Main.json")
-    assert (Abs.default_out(in_, 'output', 3)
-            == "output/Aliasing-ControlFlow-Insecure"
-               "_program_src_Main.json")
+    in_ = "~/lib/Aliasing-Insecure/prog/src/Main.java"
+    def_o = lambda d: Abs.default_out(in_, 'output', d)
+
+    assert def_o(0) == "output/Main.json"
+    assert def_o(1) == "output/src_Main.json"
+    assert def_o(3) == "output/Aliasing-Insecure_prog_src_Main.json"
 
 
 def test_u_sub_positive():
@@ -34,3 +35,15 @@ def test_gen_rename():
     assert fst == 'a₂'
     assert snd == 'a₅'
     assert thr == 'a₆'
+
+
+def test_save(mocker):
+    # mock all built-ins
+    mocker.patch('os.path.exists', return_value=False)
+    mocker.patch('os.makedirs')
+    mocker.patch('builtins.open')
+    mocker.patch('json.dump')
+    JavaAnalyzer('my.c', 'out/my_dir/my.json') \
+        .save({'input': 'my.c', 'result': {}})
+    os.makedirs.assert_called_once_with('out/my_dir')
+    json.dump.assert_called_once()

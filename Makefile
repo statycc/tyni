@@ -4,6 +4,7 @@ help:
 	@echo "test      ─ run unit tests"
 	@echo "lint      ─ run linter"
 	@echo "ptest     ─ try parse all programs"
+	@echo "missing   ─ stmts missing test coverage (ignoring parser)"
 	@echo "build     ─ compile java programs to bytecode"
 	@echo "bytecode  ─ compile java programs to -readable- bytecode"
 	@echo "parser    ─ build a parser from grammars"
@@ -52,6 +53,9 @@ ptest: $(P_DIR)
 
 test:
 	pytest --cov=$(ANALYZER) tests --show-capture=no
+
+missing:
+	pytest --cov-config=.cov_missing --cov-report term-missing:skip-covered --cov=$(ANALYZER) tests --show-capture=no
 
 lint:
 	flake8 $(ANALYZER) --count --show-source --statistics --exclude "$(ANALYZER)/parser"
