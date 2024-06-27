@@ -2,6 +2,7 @@ package mvt;
 
 import java.util.Arrays;
 
+@SuppressWarnings({"ConstantValue", "ManualMinMaxCalculation"})
 public class Program {
 
     public static void main(String[] args) {

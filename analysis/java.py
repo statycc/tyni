@@ -87,6 +87,12 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         super().visit(tree)
         return self
 
+    @staticmethod
+    def last_child(ctx: JavaParser.compilationUnit) \
+            -> Optional[JavaParser.compilationUnit]:
+        n = ctx.getChildCount()
+        return ctx.getChild(n - 1) if n else None
+
 
 class ClassVisitor(ExtVisitor):
     """Visits each class (possibly nested) and its methods."""
@@ -211,26 +217,35 @@ class RecVisitor(ExtVisitor):
         Returns:
             Set of in-variables.
         """
-        if (cc := ctx.getChildCount()) == 1:
+        if (cc := ctx.getChildCount()) == 0:
+            return set()
+
+        # identifiers, constants
+        elif cc == 1:
             # base case / terminal
             if ctx.getChild(0).getChildCount() == 0:
                 return RecVisitor.occurs(ctx)
             else:
                 return RecVisitor.rvars(ctx.getChild(0))
 
-        # unary
+        # unary, new, method calls
         elif cc == 2:
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
             # skip object inits with identifiers
             if c1t == "new":
                 if RecVisitor.occurs(ctx):
-                    RecVisitor.skipped(ctx, 'vars in')
+                    RecVisitor.skipped(ctx, 'vars:')
                 return set()
             u_ops = '++,--,!,~,+,-'.split(',')
             if c1t in u_ops or c2t in u_ops:
                 id_node = c1 if c1t not in u_ops else c2
                 return RecVisitor.rvars(id_node)
+            if (c2.getChildCount() == 3 and
+                    c2.getChild(0).getText() == '(' and
+                    c2.getChild(2).getText() == ')'):
+                RecVisitor.skipped(ctx, 'vars:')
+                return set()
             # something else
             RecVisitor.skipped(ctx, 'rvars-2')
             return RecVisitor.occurs(ctx)
@@ -256,10 +271,17 @@ class RecVisitor(ExtVisitor):
                 return (RecVisitor.rvars(c0) | RecVisitor.rvars(c2) |
                         RecVisitor.rvars(c4))
 
-        # min 4-part expressions: arrays and ???
-        c1, cn = ctx.getChild(1), ctx.getChild(cc - 1)
-        if c1.getText() == "[" and cn.getText() == "]":
-            pass
+        # switch expression
+        if ctx.getChild(0).getText() == "switch":
+            # TODO: can there be new, out vars?
+            vst = RecVisitor().visit(ctx)
+            return vst.vars
+
+        # array accesses
+        if (ctx.getChild(1).getText() == "[" and
+                RecVisitor.last_child(ctx).getText() == "]"):
+            return RecVisitor.occurs(ctx)
+
         else:  # something else
             RecVisitor.skipped(ctx, f'rvars-{cc}')
         return RecVisitor.occurs(ctx)
@@ -303,7 +325,7 @@ class RecVisitor(ExtVisitor):
         elif ctx.TRY():
             return RecVisitor.skipped(ctx)
         elif ctx.SWITCH():
-            return RecVisitor.skipped(ctx)
+            return self.__switch(ctx)
         elif ctx.SYNCHRONIZED():
             return RecVisitor.skipped(ctx)
         elif ctx.RETURN():
@@ -311,24 +333,22 @@ class RecVisitor(ExtVisitor):
         elif ctx.THROW():
             return RecVisitor.skipped(ctx)
         elif ctx.BREAK():
-            return RecVisitor.skipped(ctx)
+            return
         elif ctx.CONTINUE():
-            return RecVisitor.skipped(ctx)
+            return
         elif ctx.YIELD():
             return RecVisitor.skipped(ctx)
-        # elif ctx.SEMI():
-        #     logger.debug(f'semi: {ctx.getText()}')
-        # elif ctx.statementExpression:
-        #     logger.debug(f'stmt_exp: {ctx.getText()}')
-        # elif ctx.switchExpression():
-        #     logger.debug(f'switch_exp: {ctx.getText()}')
-        # elif ctx.identifierLabel:
-        #     logger.debug(f'id_label: {ctx.getText()}')
-        super().visitStatement(ctx)
+        elif ctx.SEMI():
+            return super().visitStatement(ctx)
+        elif ctx.statementExpression:
+            return super().visitStatement(ctx)
+        elif ctx.switchExpression():
+            return super().visitStatement(ctx)
+        # else: ctx.identifierLabel
+        return super().visitStatement(ctx)
 
     def visitExpression(self, ctx: JavaParser.ExpressionContext):
         """Expressions cf. grammars/JavaParser.g4#L599"""
-
         if (cc := ctx.getChildCount()) == 3:
             lc, o, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             op = o.getText()
@@ -371,9 +391,22 @@ class RecVisitor(ExtVisitor):
                 if fst == '(' and lst == ')':
                     return super().visitExpression(ctx)
 
+        if cc == 1 and len(ct := ctx.getText()):
+            # numeric, string constants
+            if ct.isdecimal(): return
+            if ct[0] == '"' and ct[-1] == '"': return
+
         # something else
-        self.skipped(ctx, 'exp')
+        self.skipped(ctx, f'exp {ctx.getChildCount()}')
         super().visitExpression(ctx)
+
+    def visitSwitchExpression(self, ctx: JavaParser.SwitchExpressionContext):
+        """It's a fancy switch."""
+        return self.__switch(ctx)
+
+    def visitSwitchLabel(self, ctx: JavaParser.SwitchLabelContext):
+        """Ignore case labels."""
+        return
 
     def scoped_merge(self, child: RecVisitor):
         """Controlled merge when child has local scope."""
@@ -411,6 +444,17 @@ class RecVisitor(ExtVisitor):
             snd_branch = RecVisitor.corr_stmt(cond, ctx.getChild(4))
             fst_branch.scoped_merge(snd_branch)
         self.scoped_merge(fst_branch)
+
+    def __switch(self, ctx: JavaParser.StatementContext):
+        switch_ctx, switch_var = RecVisitor(), ctx.getChild(1)
+        # iterate cases
+        for cn in range(3, ctx.getChildCount() - 1):
+            case = RecVisitor()
+            for body_st in ctx.getChild(cn).children:
+                case.visit(body_st)
+            switch_ctx.scoped_merge(case)
+        stmt = RecVisitor.corr_stmt(switch_var, visited=switch_ctx)
+        self.scoped_merge(stmt)
 
     def __for(self, ctx: JavaParser.StatementContext):
         for_ctrl, body = ctx.getChild(2), ctx.getChild(4)
