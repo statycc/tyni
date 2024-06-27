@@ -16,76 +16,18 @@ from analysis.parser.JavaParserVisitor import JavaParserVisitor
 logger = logging.getLogger(__name__)
 
 
-class JavaAnalyzer(AbstractAnalyzer):
-    """Analyzer for Java programming language.
-
-    Example:
-
-    Parses and analyzes program, where program is some .java file.
-
-    ```python
-    JavaAnalyzer(program).parse().run()
-    ```
-    """
-
-    @staticmethod
-    def lang_match(input_file: str) -> bool:
-        """Analyzes any file with .java extension.
-
-        This is optimistic, since the grammar of the parser
-        is Java-version specific.
-        """
-        return input_file.endswith('.java')
-
-    def parse(self) -> JavaAnalyzer:
-        """Attempt to parse the input file.
-
-        This method terminates running process if parse fails.
-
-        Raises:
-            AssertionError: if input file is not analyzable.
-
-        Returns:
-            The analyzer.
-        """
-        assert JavaAnalyzer.lang_match(self.input_file)
-        logger.debug(f'parsing {self.input_file}')
-        input_stream = FileStream(
-            self.input_file, encoding="UTF-8")
-        lexer = JavaLexer(input_stream)
-        stream = CommonTokenStream(lexer)
-        parser = JavaParser(stream)
-        if parser.getNumberOfSyntaxErrors() > 0:
-            return sys.exit(1)
-        logger.debug("parsed successfully")
-        self.tree = parser.compilationUnit()
-        return self
-
-    def run(self) -> dict:
-        """Performs analysis on the input file.
-        This requires parse has already been performed.
-
-        Raises:
-            AssertionError: if input has not been parsed successfully.
-
-        Returns:
-            A dictionary of analysis results.
-        """
-        assert self.tree
-        result = ClassVisitor().visit(self.tree).result
-        if self.out_file:
-            self.save(result)
-        else:
-            self.pretty_print(result)
-        return result
-
-
 class ExtVisitor(BaseVisitor, JavaParserVisitor):
     """Shared behavior for all Java visitors."""
 
     def visit(self, tree):
         super().visit(tree)
         return self
+
+    @staticmethod
+    def last_child(ctx: JavaParser.compilationUnit) \
+            -> Optional[JavaParser.compilationUnit]:
+        n = ctx.getChildCount()
+        return ctx.getChild(n - 1) if n else None
 
 
 class ClassVisitor(ExtVisitor):
@@ -311,9 +253,9 @@ class RecVisitor(ExtVisitor):
         elif ctx.THROW():
             return RecVisitor.skipped(ctx)
         elif ctx.BREAK():
-            return RecVisitor.skipped(ctx)
+            return
         elif ctx.CONTINUE():
-            return RecVisitor.skipped(ctx)
+            return
         elif ctx.YIELD():
             return RecVisitor.skipped(ctx)
         # elif ctx.SEMI():
@@ -329,7 +271,6 @@ class RecVisitor(ExtVisitor):
 
     def visitExpression(self, ctx: JavaParser.ExpressionContext):
         """Expressions cf. grammars/JavaParser.g4#L599"""
-
         if (cc := ctx.getChildCount()) == 3:
             lc, o, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             op = o.getText()
@@ -414,14 +355,19 @@ class RecVisitor(ExtVisitor):
         self.scoped_merge(fst_branch)
 
     def __switch(self, ctx: JavaParser.StatementContext):
-        cond, n_cases = ctx.getChild(1), ctx.getChildCount() - 1
-        if (f_case := ctx.getChild(3)).getChildCount() == 2:
-            lbl, body = f_case.getChild(0), f_case.getChild(1)
-            stmt = RecVisitor.corr_stmt(cond, body)
-            for cn in range(4, n_cases):
-                cc = ctx.getChild(cn)
-                lbl, body = cc.getChild(0), cc.getChild(1)
-                BaseVisitor.skipped(body)
+        switch_ctx, switch_var = RecVisitor(), ctx.getChild(1)
+        # iterate cases
+        for cn in range(3, ctx.getChildCount() - 1):
+            case = RecVisitor()
+            for body_st in ctx.getChild(cn).children:
+                case.visit(body_st)
+            switch_ctx.scoped_merge(case)
+        stmt = RecVisitor.corr_stmt(switch_var, visited=switch_ctx)
+        self.scoped_merge(stmt)
+
+    def visitSwitchLabel(self, ctx: JavaParser.SwitchLabelContext):
+        """Ignore case labels."""
+        return
 
     def __switch_exp(self, ctx: JavaParser.StatementContext):
         print('switch exp kids', ctx.getChildCount())
@@ -478,3 +424,67 @@ class IdVisitor(ExtVisitor):
     def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
         super().visitIdentifier(ctx)
         self.flat.append(ctx.getText())
+
+
+class JavaAnalyzer(AbstractAnalyzer):
+    """Analyzer for Java programming language.
+
+    Example:
+
+    Parses and analyzes program, where program is some .java file.
+
+    ```python
+    JavaAnalyzer(program).parse().run()
+    ```
+    """
+
+    @staticmethod
+    def lang_match(input_file: str) -> bool:
+        """Analyzes any file with .java extension.
+
+        This is optimistic, since the grammar of the parser
+        is Java-version specific.
+        """
+        return input_file.endswith('.java')
+
+    def parse(self) -> JavaAnalyzer:
+        """Attempt to parse the input file.
+
+        This method terminates running process if parse fails.
+
+        Raises:
+            AssertionError: if input file is not analyzable.
+
+        Returns:
+            The analyzer.
+        """
+        assert JavaAnalyzer.lang_match(self.input_file)
+        logger.debug(f'parsing {self.input_file}')
+        input_stream = FileStream(
+            self.input_file, encoding="UTF-8")
+        lexer = JavaLexer(input_stream)
+        stream = CommonTokenStream(lexer)
+        parser = JavaParser(stream)
+        if parser.getNumberOfSyntaxErrors() > 0:
+            return sys.exit(1)
+        logger.debug("parsed successfully")
+        self.tree = parser.compilationUnit()
+        return self
+
+    def run(self) -> dict:
+        """Performs analysis on the input file.
+        This requires parse has already been performed.
+
+        Raises:
+            AssertionError: if input has not been parsed successfully.
+
+        Returns:
+            A dictionary of analysis results.
+        """
+        assert self.tree
+        result = ClassVisitor().visit(self.tree).result
+        if self.out_file:
+            self.save(result)
+        else:
+            self.pretty_print(result)
+        return result
