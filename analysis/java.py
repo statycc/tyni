@@ -209,6 +209,7 @@ class RecVisitor(ExtVisitor):
 
         # switch expression
         if ctx.getChild(0).getText() == "switch":
+            # TODO: can there be new, out vars?
             vst = RecVisitor().visit(ctx)
             return vst.vars
 
