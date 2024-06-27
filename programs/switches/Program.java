@@ -9,8 +9,8 @@ public class Program {
         System.out.println("Welcome to CSCI 1301!");
         System.out.println("Enter a number 1-12: ");
         int n = reader.nextInt();
-        String m1 = month(n); //, m2 = m_exp(n);
-        // assert (m1.equals(m2));
+        String m1 = month(n), m2 = m_exp(n);
+        assert (m1.equals(m2));
         System.out.printf("Number %d as a month is %s.", n, m1);
     }
 
@@ -36,22 +36,23 @@ public class Program {
         return mth;
     }
 
-//     static protected String m_exp(int n) {
-//         String m = switch (n) {
-//             case 1 -> "January";
-//             case 2 -> "February";
-//             case 3 -> "March";
-//             case 4 -> "April";
-//             case 5 -> "May";
-//             case 6 -> "June";
-//             case 7 -> "July";
-//             case 8 -> "August";
-//             case 9 -> "September";
-//             case 10 -> "October";
-//             case 11 -> "November";
-//             case 12 -> "December";
-//             default -> "invalid";
-//         };
-//         return m;
-//     }
+     @SuppressWarnings("UnnecessaryLocalVariable")
+     static protected String m_exp(int n) {
+         String m = switch (n) {
+             case 1 -> "January";
+             case 2 -> "February";
+             case 3 -> "March";
+             case 4 -> "April";
+             case 5 -> "May";
+             case 6 -> "June";
+             case 7 -> "July";
+             case 8 -> "August";
+             case 9 -> "September";
+             case 10 -> "October";
+             case 11 -> "November";
+             case 12 -> "December";
+             default -> "invalid";
+         };
+         return m;
+     }
 }
