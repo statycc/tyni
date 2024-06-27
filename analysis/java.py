@@ -17,12 +17,19 @@ logger = logging.getLogger(__name__)
 
 
 class JavaAnalyzer(AbstractAnalyzer):
+    """Analyzer for Java programming language."""
 
     @staticmethod
     def lang_match(input_file: str) -> bool:
+        """Analyzes any file with .java extension.
+
+        This is optimistic, since the grammar of the parser
+        is Java-version specific.
+        """
         return input_file.endswith('.java')
 
     def parse(self) -> JavaAnalyzer:
+        """Attempt to parse the input file."""
         logger.debug(f'parsing {self.input_file}')
         input_stream = FileStream(
             self.input_file, encoding="UTF-8")
@@ -36,6 +43,12 @@ class JavaAnalyzer(AbstractAnalyzer):
         return self
 
     def run(self) -> dict:
+        """Performs analysis on the input file.
+        This requires parse has already been performed.
+
+        Returns:
+            A dictionary of analysis results.
+        """
         assert self.tree
         result = ClassVisitor().visit(self.tree).result
         if self.out_file:
@@ -46,7 +59,7 @@ class JavaAnalyzer(AbstractAnalyzer):
 
 
 class ExtVisitor(BaseVisitor, JavaParserVisitor):
-    """Shared behavior for all visitors."""
+    """Shared behavior for all Java visitors."""
 
     def visit(self, tree):
         super().visit(tree)
@@ -124,7 +137,7 @@ class RecVisitor(ExtVisitor):
 
     @staticmethod
     def occurs(exp: JavaParser.ExpressionContext):
-        return IdVisitor().visit(exp).vars
+        return set(IdVisitor().visit(exp).vars)
 
     @staticmethod
     def compose(m1, *args):
@@ -140,32 +153,33 @@ class RecVisitor(ExtVisitor):
         return RecVisitor.assign(occ, out)
 
     @staticmethod
-    def lvars(ctx: JavaParser.ExpressionContext):
-        """Find variables in an expression,
-        with added knowledge that it occurs left of assignment,
-        or in isolation like unary.
+    def lvars(ctx: JavaParser.ExpressionContext) -> Tuple[set[str], set[str]]:
+        """Find variables in an expression, with added knowledge that
+        expression occurs on left-side of assignment, or in isolation.
 
         Returns:
             A pair of <in-variables, out-variables>
         """
         # find all variables in the expression
         all_vars = IdVisitor().visit(ctx)
-        # the left-most is the out-variable
+        # the left-most is out, rest are in
         fst = all_vars.flat.pop(0)
-        # all others are in-variables
-        rest = ', '.join(all_vars.flat)
-        logger.debug(f'left/out: {fst}')
-        if rest:
-            logger.debug(f'left/in: {rest}')
+        logger.debug(f'L/out: {fst}')
+        if all_vars.flat:
+            logger.debug(f'L/in:  {", ".join(all_vars.flat)}')
         return all_vars.vars, {fst}
 
     @staticmethod
-    def rvars(ctx: JavaParser.ExpressionContext):
-        """Find variables in an expression,
-        with added knowledge that exp occurs right of assignment.
+    def rvars(ctx: JavaParser.ExpressionContext) -> set[str]:
+        """Find variables in an expression, with added knowledge that
+        expression occurs on right-side of assignment.
 
-        The exp may contain const, variable, operation,
-        method call, switch exp, field access, object init, …etc.
+        The expression may contain const, variable, operation,
+        method call, switch-exp, field access, object init,…etc.
+
+        For now this assumes right-side only contains in variables,
+        but perhaps that is not true (e.g., parametric method that
+        returns, can have both in and out behavior, maybe.)
 
         Returns:
             Set of in-variables.
@@ -175,23 +189,43 @@ class RecVisitor(ExtVisitor):
                 return RecVisitor.occurs(ctx)
             else:
                 return RecVisitor.rvars(ctx.getChild(0))
+
+        # unary expressions
         elif cc == 2:
-            fst, snd = ctx.getChild(0), ctx.getChild(1)
+            c1, c2 = ctx.getChild(0), ctx.getChild(1)
+            c1t, c2t = [x.getText() for x in (c1, c2)]
             # skip object inits with identifiers
-            if fst.getText() == "new":
+            if c1t == "new":
                 if RecVisitor.occurs(ctx):
                     RecVisitor.skipped(ctx, 'vars in')
                 return set()
-            RecVisitor.skipped(ctx)  # something else
-            return set()
+            u_ops = '++,--,!,~,+,-'.split(',')
+            if c1t in u_ops or c2t in u_ops:
+                id_node = c1 if c1t not in u_ops else c2
+                return RecVisitor.rvars(id_node)
+            # something else
+            RecVisitor.skipped(ctx, 'rvars-2')
+            return RecVisitor.occurs(ctx)
+
+        # binary ops
         elif cc == 3:
             lc, op, rc = [ctx.getChild(n) for n in [0, 1, 2]]
-            l, o, r = [x.getText() for x in [lc, op, rc]]
-            # TODO: check operator
-            logger.debug(f'\033[92m[R-in]: {l} {o} {r}\033[0m')
-        else:
-            logger.debug(f'\033[92m[R-in {ctx.getChildCount()}]: '
-                         f'{RecVisitor.og_text(ctx)}\033[0m')
+            if (opt := op.getText()) == ".":
+                return RecVisitor.rvars(lc)  # take leftmost
+            elif opt in '==,+,-,*,/,%,&&,||,^,>>,<<'.split(','):
+                return RecVisitor.occurs(lc) | RecVisitor.rvars(rc)
+            elif lc.getText() == '(' and rc.getText() == ')':
+                return RecVisitor.rvars(op)
+            # something else
+            RecVisitor.skipped(ctx, 'rvars-3')
+            return RecVisitor.occurs(ctx)
+
+        # min 4-part expressions: arrays and ???
+        c1, cn = ctx.getChild(1), ctx.getChild(cc - 1)
+        if c1.getText() == "[" and cn.getText() == "]":
+            pass
+        else:  # something else
+            RecVisitor.skipped(ctx, f'rvars-{cc}')
         return RecVisitor.occurs(ctx)
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
@@ -199,14 +233,13 @@ class RecVisitor(ExtVisitor):
 
     def visitVariableDeclarator(
             self, ctx: JavaParser.VariableDeclaratorContext):
-        if ctx.getChildCount() > 0:
+        if (cc := ctx.getChildCount()) > 0:
             # left should only have out-vars
             out_v = self.occurs(ctx.getChild(0))
             self.merge(self.vars, out_v)
             self.merge(self.new_v, out_v)
-            # also has initialization
-            if ctx.getChildCount() == 3 and \
-                    ctx.getChild(1).getText() == '=':
+            # decl with initialization
+            if cc == 3 and ctx.getChild(1).getText() == '=':
                 in_v = self.rvars(ctx.getChild(2))
                 self.merge(self.vars, in_v)
                 self.merge(self.out_v, out_v)
@@ -221,32 +254,32 @@ class RecVisitor(ExtVisitor):
         """Statement handlers cf. grammars/JavaParser.g4#L508"""
         if ctx.blockLabel:
             return super().visitStatement(ctx)
-        if ctx.ASSERT():
-            return self.skipped(ctx)
-        if ctx.IF():
+        elif ctx.ASSERT():
+            return RecVisitor.skipped(ctx)
+        elif ctx.IF():
             return self.__if(ctx)
-        if ctx.FOR():
+        elif ctx.FOR():
             return self.__for(ctx)
-        if ctx.WHILE() and not ctx.DO():
-            return self.__while(ctx)
-        if ctx.WHILE() and ctx.DO():
+        elif ctx.DO() and ctx.WHILE():
             return self.__do(ctx)
-            # elif ctx.TRY():
-        #     logger.debug(f'try: {ctx.getText()}')
-        # elif ctx.SWITCH():
-        #     logger.debug(f'switch: {ctx.getText()}')
+        elif ctx.WHILE():
+            return self.__while(ctx)
+        elif ctx.TRY():
+            return RecVisitor.skipped(ctx)
+        elif ctx.SWITCH():
+            return RecVisitor.skipped(ctx)
         elif ctx.SYNCHRONIZED():
-            return self.skipped(ctx)
+            return RecVisitor.skipped(ctx)
         elif ctx.RETURN():
-            return self.skipped(ctx)
+            return RecVisitor.skipped(ctx)
         elif ctx.THROW():
-            return self.skipped(ctx)
+            return RecVisitor.skipped(ctx)
         elif ctx.BREAK():
-            return self.skipped(ctx)
+            return RecVisitor.skipped(ctx)
         elif ctx.CONTINUE():
-            return self.skipped(ctx)
-        # elif ctx.YIELD():
-        #     logger.debug(f'yield: {ctx.getText()}')
+            return RecVisitor.skipped(ctx)
+        elif ctx.YIELD():
+            return RecVisitor.skipped(ctx)
         # elif ctx.SEMI():
         #     logger.debug(f'semi: {ctx.getText()}')
         # elif ctx.statementExpression:
@@ -260,16 +293,17 @@ class RecVisitor(ExtVisitor):
     def visitExpression(self, ctx: JavaParser.ExpressionContext):
         """Expressions cf. grammars/JavaParser.g4#L599"""
 
-        if ctx.getChildCount() == 3:
-            op = ctx.getChild(1).getText()
+        if (cc := ctx.getChildCount()) == 3:
+            lc, o, rc = [ctx.getChild(n) for n in [0, 1, 2]]
+            op = o.getText()
             # ASSIGNMENT: identify from operator form
             # if compound, out-variable is also an in-variable,
             # but such data flow is irrelevant for this analysis.
-            if op in ['=', '+=', '-=', '*=', '/=', '%=', '&=',
-                      '|=', '^=', '>>=', '>>>=', '<<=']:
+            if op in '=,+=,-=,*=,/=,%=,&=,|=,^=,>>=,>>>=,<<='.split(','):
                 logger.debug(f'bop: {ctx.getText()}')
-                in_l, out_v = self.lvars(ctx.getChild(0))
-                in_v = self.rvars(ctx.getChild(2))
+                in_l, out_v = self.lvars(lc)
+                in_v = self.rvars(rc)
+                logger.debug(f'R/in:  {", ".join(in_v) or "-"}')
                 self.merge(self.vars, out_v, in_v, in_l)
                 self.merge(self.out_v, out_v)
                 flows = self.compose(
@@ -278,36 +312,30 @@ class RecVisitor(ExtVisitor):
                 self.matrix = self.compose(self.matrix, flows)
                 return
 
-            # dot operator, e.g., System.out.println
+            # DOT OPERATOR, e.g., System.out.println
             if op == ".":
                 return self.skipped(ctx, 'dot-op')
 
         # UNARY incr/decr
-        if ctx.getChildCount() == 2:
-            ops = ["++", "--"]
-            v1, v2 = ctx.getChild(0), ctx.getChild(1)
-            if v1.getText() in ops or v2.getText() in ops:
-                id_node = v1 if v1.getText() not in ops else v2
+        if cc == 2:
+            c1, c2 = [ctx.getChild(n).getText() for n in [0, 1]]
+            if c1 in ("++", "--") or c2 in ("++", "--"):
                 logger.debug(f'unary: {ctx.getText()}')
-                in_l, out_v = self.lvars(id_node)
+                in_l, out_v = self.lvars(ctx)
                 self.merge(self.vars, out_v, in_l)
                 self.merge(self.out_v, out_v)
                 flows = self.assign(in_l, out_v)
                 self.matrix = self.compose(self.matrix, flows)
                 return
 
-        # METHOD CALL: continue
-        if ctx.getChildCount() == 1 \
-                and ctx.getChild(0).getChildCount() == 2 \
-                and ctx.getChild(0).getChild(1) \
-                .getChildCount() == 3 \
-                and ctx.getChild(0).getChild(1) \
-                .getChild(0).getText() == '(' \
-                and ctx.getChild(0).getChild(1) \
-                .getChild(2).getText() == ')':
-            # likely a method call -> continue
-            return super().visitExpression(ctx)
+        # METHOD CALL -> fall-through
+        if cc == 1 and (c0 := ctx.getChild(0)).getChildCount() == 2:
+            if (c1 := c0.getChild(1)).getChildCount() == 3:
+                fst, lst = [c1.getChild(n).getText() for n in (0, 2)]
+                if fst == '(' and lst == ')':
+                    return super().visitExpression(ctx)
 
+        # something else
         self.skipped(ctx, 'exp')
         super().visitExpression(ctx)
 
@@ -329,12 +357,12 @@ class RecVisitor(ExtVisitor):
     @staticmethod
     def corr_stmt(
             exp: JavaParser.ExpressionContext,
-            body: JavaParser.StatementContext,
-            pre_visited=None
+            body: Optional[JavaParser.StatementContext] = None,
+            visited: RecVisitor = None
     ) -> RecordVisitor:
         """Analyze body stmt and apply correction."""
         e_vars = RecVisitor.occurs(exp)
-        stmt = pre_visited or RecVisitor().visit(body)
+        stmt = visited or RecVisitor().visit(body)
         RecVisitor.merge(stmt.vars, e_vars)
         corr = RecVisitor.correction(e_vars, stmt.out_v)
         stmt.matrix = RecVisitor.compose(stmt.matrix, corr)
@@ -355,7 +383,7 @@ class RecVisitor(ExtVisitor):
         if for_ctrl.getChildCount() > 4:
             init, cond, updt = [for_ctrl.getChild(i) for i in [0, 2, 4]]
             stmt = RecVisitor().visit(init).visit(updt).visit(body)
-            stmt = RecVisitor.corr_stmt(cond, None, stmt)
+            stmt = RecVisitor.corr_stmt(cond, visited=stmt)
             self.scoped_merge(stmt)
             return
 
@@ -378,33 +406,24 @@ class RecVisitor(ExtVisitor):
 
     def __while(self, ctx: JavaParser.StatementContext):
         cond, body = ctx.getChild(1), ctx.getChild(2)
-        loop_res = RecVisitor.corr_stmt(cond, body)
-        self.scoped_merge(loop_res)
+        self.scoped_merge(RecVisitor.corr_stmt(cond, body))
 
     def __do(self, ctx: JavaParser.StatementContext):
         body, cond = ctx.getChild(1), ctx.getChild(3)
-        loop_res = RecVisitor.corr_stmt(cond, body)
-        self.scoped_merge(loop_res)
+        self.scoped_merge(RecVisitor.corr_stmt(cond, body))
 
 
 class IdVisitor(ExtVisitor):
-    """Finds identifiers in a parse tree"""
+    """Finds identifiers in a parse tree."""
 
     def __init__(self):
+        # For some operations the order of discovery matters,
+        # so maintain a list, to capture identifier order (L-R).
         self.flat = []
 
     @property
     def vars(self):
-        return dict([(x, x) for x in self.flat])
-
-    def visitExpression(self, ctx: JavaParser.ExpressionContext):
-        # if exp is a bin-op, and the op is dot-notation,
-        # then process only the leftmost identifier.
-        if (ctx.getChildCount() == 3 and
-                ctx.getChild(1).getText() == '.'):
-            self.visitExpression(ctx.getChild(0))
-        else:
-            super().visitExpression(ctx)
+        return set(self.flat)
 
     def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
         super().visitIdentifier(ctx)
