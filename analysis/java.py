@@ -3,9 +3,11 @@ from __future__ import annotations
 import logging
 import operator
 import sys
-from antlr4 import FileStream, CommonTokenStream
 from functools import reduce
 from itertools import product
+from typing import Optional
+
+from antlr4 import FileStream, CommonTokenStream
 
 from . import AbstractAnalyzer, BaseVisitor, ClassResult, MethodResult
 from . import JavaLexer, JavaParser, JavaParserVisitor
@@ -59,7 +61,7 @@ class JavaAnalyzer(AbstractAnalyzer):
         self.tree = parser.compilationUnit()
         return self
 
-    def run(self) -> JavaAnalyzer:
+    def run(self) -> dict:
         """Performs analysis on the input file.
         This requires parse has already been performed.
 
@@ -67,13 +69,15 @@ class JavaAnalyzer(AbstractAnalyzer):
             AssertionError: if input has not been parsed successfully.
 
         Returns:
-            The analyzer.
+            The analysis result.
         """
         assert self.tree
         self.result = ClassVisitor().visit(self.tree).result
-        action = self.save if self.out_file else self.pretty_print
-        action(self.result)
-        return self
+        if self.out_file:
+            self.save()
+        else:
+            self.pretty_print(self.result)
+        return self.content
 
 
 class ExtVisitor(BaseVisitor, JavaParserVisitor):

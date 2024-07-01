@@ -5,8 +5,6 @@ import logging
 import os
 from abc import ABC, abstractmethod
 
-from analysis import Evaluate
-
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +43,7 @@ class AbstractAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def run(self) -> AbstractAnalyzer:  # pragma: no cover
+    def run(self) -> dict:  # pragma: no cover
         """Analyzes input file.
 
         Returns:
@@ -53,24 +51,19 @@ class AbstractAnalyzer(ABC):
         """
         pass
 
-    def evaluate(self):
-        """Evaluates analysis result."""
-        assert self.result
-        Evaluate(self.result).solve()
+    @property
+    def content(self):
+        return {'input': self.input_file, 'result': self.result}
 
-    def save(self, data: dict) -> None:
-        """Saves analysis results to file.
-
-        Arguments:
-            data: analysis results.
-        """
+    def save(self) -> None:
+        """Saves analysis results to file."""
         assert self.out_file
-        content = {'input': self.input_file, 'result': data}
         dir_path, _ = os.path.split(self.out_file)
         if len(dir_path) > 0 and not os.path.exists(dir_path):
             os.makedirs(dir_path)
         with open(self.out_file, "w") as outfile:
-            json.dump(content, outfile, indent=4, ensure_ascii=False)
+            json.dump(self.content, outfile,
+                      indent=4, ensure_ascii=False)
         logger.info(f'Wrote result to: {self.out_file}')
 
     @staticmethod

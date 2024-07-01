@@ -5,7 +5,7 @@ import sys
 from argparse import ArgumentParser, Namespace
 from typing import Optional, Type
 
-from analysis import AbstractAnalyzer, JavaAnalyzer
+from analysis import AbstractAnalyzer, JavaAnalyzer, Evaluate
 from analysis import __version__, __title__ as prog_name
 
 
@@ -27,7 +27,7 @@ def main():
     logger.debug(f'Using {AnalyzerClass.__name__}')
 
     analyzer = AnalyzerClass(args.input, args.out).parse()
-    args.parse or analyzer.run()
+    args.parse or Evaluate(analyzer.run()).solve_all()
 
 
 def __choose_analyzer(input_file: str) \
