@@ -7,15 +7,13 @@ from antlr4 import FileStream, CommonTokenStream
 from functools import reduce
 from itertools import product
 
-from analysis import AbstractAnalyzer, ClassResult, MethodResult
-from analysis import BaseVisitor
-from analysis.parser.JavaLexer import JavaLexer
-from analysis.parser.JavaParser import JavaParser
-from analysis.parser.JavaParserVisitor import JavaParserVisitor
+from . import AbstractAnalyzer, BaseVisitor, ClassResult, MethodResult
+from . import JavaLexer, JavaParser, JavaParserVisitor
 
 logger = logging.getLogger(__name__)
 
 
+# noinspection PyAttributeOutsideInit
 class JavaAnalyzer(AbstractAnalyzer):
     """Analyzer for Java programming language.
 
@@ -61,7 +59,7 @@ class JavaAnalyzer(AbstractAnalyzer):
         self.tree = parser.compilationUnit()
         return self
 
-    def run(self) -> dict:
+    def run(self) -> JavaAnalyzer:
         """Performs analysis on the input file.
         This requires parse has already been performed.
 
@@ -69,15 +67,13 @@ class JavaAnalyzer(AbstractAnalyzer):
             AssertionError: if input has not been parsed successfully.
 
         Returns:
-            A dictionary of analysis results.
+            The analyzer.
         """
         assert self.tree
-        result = ClassVisitor().visit(self.tree).result
-        if self.out_file:
-            self.save(result)
-        else:
-            self.pretty_print(result)
-        return result
+        self.result = ClassVisitor().visit(self.tree).result
+        action = self.save if self.out_file else self.pretty_print
+        action(self.result)
+        return self
 
 
 class ExtVisitor(BaseVisitor, JavaParserVisitor):

@@ -5,3 +5,4 @@ output
 build
 bytecode
 out/
+*.json
