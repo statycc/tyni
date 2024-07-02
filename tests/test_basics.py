@@ -3,13 +3,13 @@ import os
 
 from pytest import raises
 
-from analysis import BaseVisitor, AbstractAnalyzer as Abs
-from analysis import JavaAnalyzer
+from analysis import BaseVisitor
+from analysis import Result
 
 
 def test_default_out_varying_path_depth():
     in_ = "~/lib/Aliasing-Insecure/prog/src/Main.java"
-    def_o = lambda d: Abs.default_out(in_, 'output', d)
+    def_o = lambda d: Result.default_out(in_, 'output', d)
 
     assert def_o(0) == "output/Main.json"
     assert def_o(1) == "output/src_Main.json"
@@ -43,7 +43,6 @@ def test_save(mocker):
     mocker.patch('os.makedirs')
     mocker.patch('builtins.open')
     mocker.patch('json.dump')
-    JavaAnalyzer('my.c', 'out/my_dir/my.json') \
-        .save({'input': 'my.c', 'result': {}})
+    Result('my.c', 'out/my_dir/my.json').save()
     os.makedirs.assert_called_once_with('out/my_dir')
     json.dump.assert_called_once()

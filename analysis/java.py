@@ -3,12 +3,14 @@ from __future__ import annotations
 import logging
 import operator
 import sys
+from typing import Optional, Dict, Callable, List, Tuple
+
 from antlr4 import FileStream, CommonTokenStream
 from functools import reduce
 from itertools import product
 
-from analysis import AbstractAnalyzer, ClassResult, MethodResult
-from analysis import BaseVisitor
+from . import AbstractAnalyzer, AnalysisResult, ClassResult, MethodResult
+from . import BaseVisitor
 from analysis.parser.JavaLexer import JavaLexer
 from analysis.parser.JavaParser import JavaParser
 from analysis.parser.JavaParserVisitor import JavaParserVisitor
@@ -37,10 +39,15 @@ class JavaAnalyzer(AbstractAnalyzer):
         """
         return input_file.endswith('.java')
 
-    def parse(self) -> JavaAnalyzer:
+    def parse(self, on_start: Optional[Callable] = None,
+              on_stop: Optional[Callable] = None) -> JavaAnalyzer:
         """Attempt to parse the input file.
 
         This method terminates running process if parse fails.
+
+        Arguments:
+            on_start: function to call when parsing starts
+            on_stop: function to call when parsing stops
 
         Raises:
             AssertionError: if input file is not analyzable.
@@ -50,34 +57,38 @@ class JavaAnalyzer(AbstractAnalyzer):
         """
         assert JavaAnalyzer.lang_match(self.input_file)
         logger.debug(f'parsing {self.input_file}')
-        input_stream = FileStream(
-            self.input_file, encoding="UTF-8")
+        self.exec_nullable(on_start)
+        input_stream = FileStream(self.input_file, encoding="UTF-8")
         lexer = JavaLexer(input_stream)
         stream = CommonTokenStream(lexer)
         parser = JavaParser(stream)
+        self.exec_nullable(on_stop)
         if parser.getNumberOfSyntaxErrors() > 0:
             return sys.exit(1)
         logger.debug("parsed successfully")
         self.tree = parser.compilationUnit()
         return self
 
-    def run(self) -> dict:
+    def analyze(self, on_start: Optional[Callable] = None,
+                on_stop: Optional[Callable] = None) -> JavaAnalyzer:
         """Performs analysis on the input file.
         This requires parse has already been performed.
+
+        Arguments:
+            on_start: function to call when parsing starts
+            on_stop: function to call when parsing stops
 
         Raises:
             AssertionError: if input has not been parsed successfully.
 
         Returns:
-            A dictionary of analysis results.
+            The analyzer.
         """
         assert self.tree
-        result = ClassVisitor().visit(self.tree).result
-        if self.out_file:
-            self.save(result)
-        else:
-            self.pretty_print(result)
-        return result
+        self.exec_nullable(on_start)
+        self.analysis_result = ClassVisitor().visit(self.tree).result
+        self.exec_nullable(on_stop)
+        return self
 
 
 class ExtVisitor(BaseVisitor, JavaParserVisitor):
@@ -97,9 +108,10 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
 class ClassVisitor(ExtVisitor):
     """Visits each class (possibly nested) and its methods."""
 
+    # noinspection PyTypeChecker
     def __init__(self, parent: ClassVisitor = None):
         self.parent: ClassVisitor = parent
-        self.result: dict = {}
+        self.result: Dict[AnalysisResult] = {}
         self.name: str = ''
 
     def hierarchy(self, name):
@@ -121,6 +133,7 @@ class ClassVisitor(ExtVisitor):
     def mat_format(mat):
         return list(set(mat))
 
+    # noinspection PyTypeChecker
     def visitClassDeclaration(
             self, ctx: JavaParser.ClassDeclarationContext):
         self.name = self.hierarchy(ctx.identifier().getText())
@@ -148,7 +161,7 @@ class RecVisitor(ExtVisitor):
         self.vars = set()  # all encountered variables
         self.out_v = set()  # encountered out variables
         self.new_v = set()  # encountered declarations
-        self.matrix: List[Tuple(str, str)] = []  # data flows (in, out)
+        self.matrix: List[Tuple[str, str]] = []  # data flows (in, out)
 
     def subst(self, old_: str, new_: str):
         """Substitutes variable name in place.
