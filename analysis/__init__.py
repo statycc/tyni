@@ -4,6 +4,7 @@ __license__ = ""
 __version__ = "0.0.1"
 
 # flake8: noqa: F401
+from analysis.result import Result
 from analysis.abs import AbstractAnalyzer, BaseVisitor
-from analysis.abs import ClassResult, MethodResult
+from analysis.abs import AnalysisResult, ClassResult, MethodResult
 from analysis.java import JavaAnalyzer
