@@ -4,9 +4,16 @@ import logging
 import sys
 from argparse import ArgumentParser, Namespace
 from typing import Optional, Type
+from enum import Enum
 
-from analysis import AbstractAnalyzer, JavaAnalyzer, Evaluate
+from analysis import AbstractAnalyzer, JavaAnalyzer, Result
 from analysis import __version__, __title__ as prog_name
+
+
+class Steps(Enum):
+    PARSE = 'P'
+    ANALYZE = 'A'
+    EVALUATE = 'E'
 
 
 def main():
@@ -18,16 +25,26 @@ def main():
         sys.exit(1)
 
     logger = __logger_setup(args.log_level)
+    result = Result(args.input, args.out, args.save)
 
     # noinspection PyPep8Naming
-    AnalyzerClass = __choose_analyzer(args.input)
-    if AnalyzerClass is None:
+    MyAnalyzer = __choose_analyzer(args.input)
+    if MyAnalyzer is None:
         logger.fatal('No supported analyzer')
         sys.exit(1)
-    logger.debug(f'Using {AnalyzerClass.__name__}')
+    result.analyzer = MyAnalyzer.__name__
+    logger.debug(f'Using {result.analyzer}')
 
-    analyzer = AnalyzerClass(args.input, args.out).parse()
-    args.parse or Evaluate(analyzer.run()).solve_all()
+    analyzer = MyAnalyzer(result)
+
+    analyzer.parse(result.t_parse.start, result.t_parse.stop)
+    if args.step == Steps.PARSE.value:
+        return result.save()
+    analyzer.analyze(result.t_analysis.start, result.t_analysis.stop)
+    if args.step == Steps.ANALYZE.value:
+        return result.to_pretty().save()
+    logger.info('Evaluation not yet implemented!')
+    return result.to_pretty().save()
 
 
 def __choose_analyzer(input_file: str) \
@@ -50,6 +67,7 @@ def __logger_setup(level_arg: int) -> logging.Logger:
     return root_log
 
 
+# noinspection PyTypeChecker
 def __parse_args(parser: ArgumentParser) -> Namespace:
     """Setup available program arguments."""
     parser.add_argument(
@@ -70,6 +88,17 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         metavar="FILE",
     )
     parser.add_argument(
+        '-r', '--run',
+        action='store',
+        choices=[e.value for e in Steps],
+        metavar="X",
+        dest='step',
+        help='execution steps to run, '
+             'P=parser only, A=analysis, E=evaluation (default: A)',
+        default='A',
+        type=str.upper
+    )
+    parser.add_argument(
         '-l',
         action='store',
         choices=range(0, 5),
@@ -80,9 +109,9 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         type=int
     )
     parser.add_argument(
-        '--parse',
+        '--save',
         action='store_true',
-        help='parse only, skipping analysis'
+        help='save analyzer results to a file'
     )
     return parser.parse_args(None)
 

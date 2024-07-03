@@ -49,7 +49,7 @@ rebuild:
 
 ptest: $(P_DIR)
 	@$(foreach p, $(PROGS), \
-		echo "PARSE $(p)" && python3 -m $(ANALYZER) $(P_DIR)/$(p)/$(PNAME).java --parse -l 0 ; )
+		echo "PARSE $(p)" && python3 -m $(ANALYZER) $(P_DIR)/$(p)/$(PNAME).java -r P -l 0 ; )
 
 test:
 	pytest --cov=$(ANALYZER) tests --show-capture=no

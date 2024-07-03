@@ -1,10 +1,11 @@
-from analysis import JavaAnalyzer
+from analysis import JavaAnalyzer, Result
 
 
 def helper(prog, cls_name, method):
-    p = f'programs/{prog}/Program.java'
-    res = JavaAnalyzer(p).parse().run()[cls_name][method]
-    return sorted(res['variables']), res['flows']
+    res = Result(f'programs/{prog}/Program.java')
+    JavaAnalyzer(res).parse().analyze()
+    mth = res.analysis_result[cls_name][method]
+    return sorted(mth['variables']), mth['flows']
 
 
 def test_ifc_prog1():

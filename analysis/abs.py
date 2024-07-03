@@ -1,25 +1,39 @@
 from __future__ import annotations
 
-import json
 import logging
-import os
 from abc import ABC, abstractmethod
+from typing import Callable, Optional
+
+from analysis import Result
 
 logger = logging.getLogger(__name__)
 
 
 class AbstractAnalyzer(ABC):
-    def __init__(self, input_file: str, out_file: str = None):
+    def __init__(self, result: Result):
         """Base class for an analyzer.
 
         Arguments:
-            input_file: input program to analyze.
-            out_file: FILE for analysis results [default: None].
+            result: Analysis results collector.
         """
-        self.input_file = input_file
-        self.out_file = out_file
+        self._result = result
         self.tree = None
-        self.result = {}
+
+    @property
+    def input_file(self):
+        return self._result.infile
+
+    @property
+    def analysis_result(self):
+        return self._result.analysis_result
+
+    @analysis_result.setter
+    def analysis_result(self, result: dict):
+        self._result.analysis_result = result
+
+    @staticmethod
+    def exec_nullable(f: Callable):
+        return f() if f else None
 
     @staticmethod
     def lang_match(input_file: str) -> bool:  # pragma: no cover
@@ -34,8 +48,14 @@ class AbstractAnalyzer(ABC):
         return False
 
     @abstractmethod
-    def parse(self) -> AbstractAnalyzer:  # pragma: no cover
+    def parse(self, on_start: Optional[Callable] = None,
+              on_stop: Optional[Callable] = None) \
+            -> AbstractAnalyzer:  # pragma: no cover
         """Parses the input file.
+
+        Arguments:
+            on_start: function to call when parsing starts
+            on_stop: function to call when parsing stops
 
         Returns:
             The analyzer object.
@@ -43,51 +63,19 @@ class AbstractAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def run(self) -> dict:  # pragma: no cover
+    def analyze(self, on_start: Optional[Callable] = None,
+                on_stop: Optional[Callable] = None) \
+            -> dict:  # pragma: no cover
         """Analyzes input file.
+
+        Arguments:
+            on_start: function to call when analysis starts
+            on_stop: function to call when analysis stops
 
         Returns:
             The analysis results as a dictionary.
         """
         pass
-
-    @property
-    def content(self):
-        return {'input': self.input_file, 'result': self.result}
-
-    def save(self) -> None:
-        """Saves analysis results to file."""
-        assert self.out_file
-        dir_path, _ = os.path.split(self.out_file)
-        if len(dir_path) > 0 and not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-        with open(self.out_file, "w") as outfile:
-            json.dump(self.content, outfile,
-                      indent=4, ensure_ascii=False)
-        logger.info(f'Wrote result to: {self.out_file}')
-
-    @staticmethod
-    def default_out(input_file, out_dir='out', path_depth=3) -> str:
-        """Helper to generate output file name for input file.
-
-        Arguments:
-            input_file: program file path.
-            out_dir: path to output directory [default:output].
-            path_depth: number of directories to include [default:3].
-
-        Returns:
-            The generated file name.
-        """
-        dir_depth = -(path_depth + 1)  # +1 for the filename
-        file_only = os.path.splitext(input_file)[0]
-        file_name = '_'.join(file_only.split('/')[dir_depth:])
-        return os.path.join(out_dir, f"{file_name}.json")
-
-    @staticmethod
-    def pretty_print(result) -> None:
-        """Displays neatly analysis results."""
-        for cls in result.values():
-            print(cls)
 
 
 class BaseVisitor(ABC):
@@ -158,7 +146,7 @@ class BaseVisitor(ABC):
         return ''.join([numbers[i] for i in int_chars])
 
 
-class ResultObj(dict):
+class AnalysisResult(dict):
     """Base class for a capturing analysis results."""
 
     LN_LEN = 52
@@ -176,7 +164,7 @@ class ResultObj(dict):
         return f'{bcolors.OKBLUE}{text}{bcolors.ENDC}'
 
 
-class ClassResult(ResultObj):
+class ClassResult(AnalysisResult):
     """Stores analysis result of a single class."""
 
     def __init__(self, name: str, methods: dict[MethodResult]):
@@ -191,7 +179,7 @@ class ClassResult(ResultObj):
         return f'class {c_name}{sep}{sep.join(items)}'
 
 
-class MethodResult(ResultObj):
+class MethodResult(AnalysisResult):
     """Stores analysis result of a class method."""
 
     FLW_SEP = "🌢"
