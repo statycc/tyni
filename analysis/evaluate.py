@@ -1,8 +1,10 @@
 # noinspection PyPackageRequirements
 import logging
-from types import SimpleNamespace
+from typing import Optional
 
 from z3 import Solver, Ints
+
+from . import Result, AnalysisResult, MethodResult, Timeable
 
 logger = logging.getLogger(__name__)
 
@@ -10,52 +12,51 @@ logger = logging.getLogger(__name__)
 class Evaluate:
 
     def __init__(self, result: Result):
-        self._result = result
-        self.res = SimpleNamespace(**result.analysis_result)
+        self.result = result
 
     @property
-    def classes(self):
-        return self.res.result
+    def ar(self) -> AnalysisResult:
+        return self.result.analysis_result
 
-    def methods(self, cls):
-        return list(self.res.result[cls])
+    def solve_all(self, t: Optional[Timeable] = None):
+        cls_methods = [j for sub in [[
+            (c, m) for m in self.ar.children_of(c).keys()
+            if self.ar[c][m].variables]
+            for c in self.ar.children()] for j in sub]
+        logger.debug(f'Methods to evaluate: {len(cls_methods)}')
 
-    def vars(self, cls, mhd):
-        return list(self.res.result[cls][mhd]['variables'])
+        t.start() if t else None
+        for (cls, m_name) in cls_methods:
+            method = self.ar[cls][m_name]
+            logger.debug(f'Evaluating {cls}.{m_name}')
+            Evaluate.solve(method)
+        t.stop() if t else None
+        logger.debug("Evaluation completed")
 
-    def flows(self, cls, mhd):
-        return list(self.res.result[cls][mhd]['flows'])
-
-    def solve_all(self):
-        for c in self.classes:
-            for m in self.methods(c):
-                vrs = tuple(self.vars(c, m))
-                flows = self.flows(c, m)
-                levels = {}
-                if vrs:
-                    Evaluate.solve(vrs, *flows, **levels)
-                else:
-                    logger.debug(f'{m} has no variables to evaluate')
-
+    # noinspection PyPep8Naming
     @staticmethod
-    def solve(vrs, *flows, **levels):
+    def solve(method: MethodResult, **levels):
+
         solver = Solver()
+        vrs, flows = method.variables, method.flows
+        s_vars = Ints(' '.join([f'l({v})' for v in vrs]))
 
         # security levels are (positive) ints
-        s_vars = Ints(' '.join(vrs))
         [solver.add(v >= 0) for v in s_vars]
 
+        # add flow constraints
         for (in_, out_) in flows:
-            pass  # from Ints(in_) <= Ints(out_)
-            # solver.add(s <= y)
-            # solver.add(y <= z)
+            idx1, idx2 = vrs.index(in_), vrs.index(out_)
+            inInt, outInt = s_vars[idx1], s_vars[idx2]
+            solver.add(inInt <= outInt)
 
         # if levels are known
-        # if isinstance(v1, int): solver.add(s == v1)
-        # if isinstance(v2, int): solver.add(y == v2)
-        # if isinstance(v3, int): solver.add(z == v3)
+        for v_name, level in levels.items():
+            vInt = s_vars[vrs.index(v_name)]
+            solver.add(vInt == level)
 
-        sat_sol = str(solver.check())  # check sat/unsat
+        # check sat/unsat
+        sat_sol = method.sat = str(solver.check())
         if sat_sol == 'sat':
-            sat_sol = str(solver.model()) + ' ' + sat_sol
-        print(f'{sat_sol}')
+            method.model = str(solver.model())[1:-1] \
+                .replace(' = ', '=').replace('\n', '')

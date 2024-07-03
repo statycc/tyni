@@ -60,7 +60,10 @@ missing:
 lint:
 	flake8 $(ANALYZER) --count --show-source --statistics --exclude "$(ANALYZER)/parser"
 
+cloc:
+	 cloc . --exclude-dir=venv,.idea,parser
+
 clean:
 	@rm -rf $(O_DIR) $(B_DIR) $(DEFAULT_OUT)
-	@rm -rf .pytest_cache .coverage
+	@rm -rf tests/.pytest_cache .coverage .cov_missing
 	@find . -name \*.Program.txt -type f -delete

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import Optional
 
-from . import Result, AnalysisResult, Colors
+from . import Result, Timeable, AnalysisResult, Colors
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +32,6 @@ class AbstractAnalyzer(ABC):
         self._result.analysis_result = result
 
     @staticmethod
-    def exec_nullable(f: Callable):
-        return f() if f else None
-
-    @staticmethod
     def lang_match(input_file: str) -> bool:  # pragma: no cover
         """Determines if analyzer can handle input file.
 
@@ -48,14 +44,12 @@ class AbstractAnalyzer(ABC):
         return False
 
     @abstractmethod
-    def parse(self, on_start: Optional[Callable] = None,
-              on_stop: Optional[Callable] = None) \
+    def parse(self, t: Optional[Timeable] = None) \
             -> AbstractAnalyzer:  # pragma: no cover
         """Parses the input file.
 
         Arguments:
-            on_start: function to call when parsing starts
-            on_stop: function to call when parsing stops
+            t: time-measuring utility
 
         Returns:
             The analyzer object.
@@ -63,14 +57,12 @@ class AbstractAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def analyze(self, on_start: Optional[Callable] = None,
-                on_stop: Optional[Callable] = None) \
+    def analyze(self, t: Optional[Timeable] = None) \
             -> AbstractAnalyzer:  # pragma: no cover
         """Analyzes input file.
 
         Arguments:
-            on_start: function to call when analysis starts
-            on_stop: function to call when analysis stops
+            t: time-measuring utility
 
         Returns:
             The analysis results as a dictionary.
@@ -144,6 +136,3 @@ class BaseVisitor(ABC):
         numbers = '₀,₁,₂,₃,₄,₅,₆,₇,₈,₉'.split(',')
         int_chars = [int(c) for c in str(n)]
         return ''.join([numbers[i] for i in int_chars])
-
-
-
