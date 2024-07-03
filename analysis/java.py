@@ -198,19 +198,44 @@ class RecVisitor(ExtVisitor):
     def lvars(ctx: JavaParser.ExpressionContext) \
             -> Tuple[set[str], set[str]]:
         """Find variables in an expression, with added knowledge that
-        expression occurs on left-side of assignment, or in isolation.
+        expression occurs on left-side of assignment -or- in isolation.
 
         Returns:
             A pair of <in-variables, out-variables>
         """
-        # find all variables in the expression
-        all_vars = IdVisitor().visit(ctx)
-        # the left-most is out, rest are in
-        fst = all_vars.flat.pop(0)
-        logger.debug(f'L/out: {fst}')
-        if all_vars.flat:
-            logger.debug(f'L/in:  {", ".join(all_vars.flat)}')
-        return all_vars.vars, {fst}
+        if (cc := ctx.getChildCount()) == 0:
+            return set(), set()
+
+        elif cc == 1:  # terminal identifier
+            if ctx.getChild(0).getChildCount() == 0:
+                out_v = RecVisitor.occurs(ctx)
+                logger.debug(f'L/out: {", ".join(out_v)}')
+                return set(), out_v
+            else:
+                return RecVisitor.lvars(ctx.getChild(0))
+
+        elif cc == 2:  # standalone unary
+            c1, c2 = ctx.getChild(0), ctx.getChild(1)
+            c1t, c2t = [x.getText() for x in (c1, c2)]
+            u_ops = '++,--,!,~,+,-'.split(',')
+            if c1t in u_ops or c2t in u_ops:
+                id_node = c1 if c1t not in u_ops else c2
+                return RecVisitor.lvars(id_node)
+
+        elif cc >= 4:  # arrays
+            if (ctx.getChild(1).getText() == "[" and
+                    RecVisitor.last_child(ctx).getText() == "]"):
+                all_vars = IdVisitor().visit(ctx)
+                # the left-most is out, rest are in
+                fst = all_vars.flat.pop(0)
+                rest = all_vars.vars
+                logger.debug(f'L/out: {fst}')
+                logger.debug(f'L/in:  {", ".join(rest)}')
+                return rest, {fst}
+
+        # otherwise skip
+        RecVisitor.skipped(ctx)
+        return set(), set()
 
     @staticmethod
     def rvars(ctx: JavaParser.ExpressionContext) -> set[str]:

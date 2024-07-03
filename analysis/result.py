@@ -163,7 +163,8 @@ class ClassResult(AnalysisResult):
     def __str__(self):
         sep = self.SEP
         items = map(str, self.values())
-        return f'{sep[1:]}{sep.join(items)}{sep[:-1]}'
+        return f'{sep[1:]}{sep.join(items)}{sep[:-1]}' \
+            if len(self.values()) > 0 else ''
 
 
 class MethodResult(AnalysisResult):
