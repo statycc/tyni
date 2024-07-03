@@ -9,37 +9,35 @@ A static analyzer implementing our information flow calculus (work in progress).
 3. Security-flow matrix data is captured from the parse tree.
 4. The matrix data is evaluated against security levels using SMT solver. 
 
-Same, but visually in steps:
+Same visually:
 
 ```
 [input].java                         ┐
----> parser                          ├─ parsing
+---> parser                          ├─ ❶ parsing 
 ---> parse-tree                      ┘
                                      ┐
----> analyze tree                    ├─ analysis
+---> analyze tree                    ├─ ❷ analysis 
 ---> gather matrix data              ┘      
                                      ┐
----> evaluate matrix data            ├─ evaluation
+---> evaluate matrix data            ├─ ❸ evaluation 
 ---> get interesting info            ┘  
 ```
 
-**Interpreting the analysis results**
+## Interpreting analyzer results
 
-The analyzer captures data during the execution phases, including e.g., input details, execution arguments, and timing information.
+The analyzer captures data during the execution phases, including input file details, execution arguments, and timing information.
 The data captured during the analysis and evaluation phases includes, for each method:
 
 ```
-method name        # Full name, as class_name(s).method_name
-variables (Vars)   # Encountered variables, see note below               
+method name        # Full name (class.method)
+variables (vars)   # Encountered variables, see note below               
 flows              # Interfering variable pairs (in, out)    
-satisfiability     # SMT-solver outcome: SAT or UNSAT                 
-model              # If SAT, the satisfiable security levels  
-                   #   that make the program non-inteferring           
+satisfiability     # SMT-solver outcome, SAT or UNSAT                 
+model              # If SAT, security levels to make the method non-interfering           
 ```
 
-The variables list does not necessarily contain every variable of the method.
-Variables that occur only in "uninteresting" statements, e.g., an unused variable declaration, are excluded.
-To inspect all captured data, save the result to a file. 
+* The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.
+* To inspect all captured data, save the result to a file. 
 
 ## Usage
 
@@ -112,7 +110,7 @@ To inspect all captured data, save the result to a file.
 
 **Commands**
 
-Some helpful commands
+Some helpful commands for development
 
 ```
 make test     # run unit tests
