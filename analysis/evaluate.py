@@ -1,15 +1,17 @@
 # noinspection PyPackageRequirements
-from z3 import Solver, Ints
-from types import SimpleNamespace
 import logging
+from types import SimpleNamespace
+
+from z3 import Solver, Ints
 
 logger = logging.getLogger(__name__)
 
 
 class Evaluate:
 
-    def __init__(self, analysis_result: dict):
-        self.res = SimpleNamespace(**analysis_result)
+    def __init__(self, result: Result):
+        self._result = result
+        self.res = SimpleNamespace(**result.analysis_result)
 
     @property
     def classes(self):

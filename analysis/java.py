@@ -3,17 +3,15 @@ from __future__ import annotations
 import logging
 import operator
 import sys
+from functools import reduce
+from itertools import product
 from typing import Optional, Dict, Callable, List, Tuple
 
 from antlr4 import FileStream, CommonTokenStream
-from functools import reduce
-from itertools import product
 
-from . import AbstractAnalyzer, AnalysisResult, ClassResult, MethodResult
-from . import BaseVisitor
-from analysis.parser.JavaLexer import JavaLexer
-from analysis.parser.JavaParser import JavaParser
-from analysis.parser.JavaParserVisitor import JavaParserVisitor
+from . import AbstractAnalyzer, BaseVisitor
+from . import AnalysisResult, ClassResult, MethodResult
+from . import JavaLexer, JavaParser, JavaParserVisitor
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +197,8 @@ class RecVisitor(ExtVisitor):
         return RecVisitor.assign(occ, out)
 
     @staticmethod
-    def lvars(ctx: JavaParser.ExpressionContext) -> Tuple[set[str], set[str]]:
+    def lvars(ctx: JavaParser.ExpressionContext) \
+            -> Tuple[set[str], set[str]]:
         """Find variables in an expression, with added knowledge that
         expression occurs on left-side of assignment, or in isolation.
 

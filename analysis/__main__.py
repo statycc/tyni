@@ -3,11 +3,11 @@
 import logging
 import sys
 from argparse import ArgumentParser, Namespace
-from typing import Optional, Type
 from enum import Enum
+from typing import Optional, Type
 
-from analysis import AbstractAnalyzer, JavaAnalyzer, Result
-from analysis import __version__, __title__ as prog_name
+from . import Result, AbstractAnalyzer, JavaAnalyzer
+from . import __version__, __title__ as prog_name
 
 
 class Steps(Enum):
@@ -94,7 +94,8 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         metavar="X",
         dest='step',
         help='execution steps to run, '
-             'P=parser only, A=analysis, E=evaluation (default: A)',
+             'P=parser only, A=analysis, E=evaluation '
+             '(default: A)',
         default='A',
         type=str.upper
     )

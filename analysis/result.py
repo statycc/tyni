@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import json
 import logging
 import os
 import time
+
+from . import Colors
 
 logger = logging.getLogger(__name__)
 
@@ -12,8 +15,7 @@ class Result(dict):
     def __init__(self, in_: str, out_: str = None, save=False):
         super().__init__()
         self.infile = in_
-        self.outfile = out_ or Result.default_out(self.infile) \
-            if save else out_
+        self.outfile = out_ or (self.default_out(in_) if save else None)
 
         # init timers
         self.timing = {'parse': {}, 'analysis': {}, 'eval': {}}
@@ -23,7 +25,7 @@ class Result(dict):
         super().__setitem__('timing', self.timing)
 
     @property
-    def analyzer(self):
+    def analyzer(self) -> str:
         return super().__getitem__('analyzer')
 
     @analyzer.setter
@@ -31,7 +33,7 @@ class Result(dict):
         super().__setitem__('analyzer', analyzer)
 
     @property
-    def analysis_result(self):
+    def analysis_result(self) -> AnalysisResult:
         return super().__getitem__('analysis_result')
 
     @analysis_result.setter
@@ -39,7 +41,7 @@ class Result(dict):
         super().__setitem__('analysis_result', result)
 
     @property
-    def infile(self):
+    def infile(self) -> str:
         return super().__getitem__('input_file')
 
     @infile.setter
@@ -47,7 +49,7 @@ class Result(dict):
         super().__setitem__('input_file', in_)
 
     @property
-    def outfile(self):
+    def outfile(self) -> Optional[str]:
         return super().__getitem__('out_file')
 
     @outfile.setter
@@ -99,6 +101,103 @@ class Result(dict):
             print(cls)
 
 
+class AnalysisResult(dict):
+    """Base class for a capturing analysis results."""
+
+    LN_LEN = 52
+
+    @staticmethod
+    def coloring(text: str) -> str:
+        """Adds color to text.
+
+        Arguments:
+            text: text to color.
+
+        Returns:
+            The original text with added color.
+        """
+        return f'{Colors.OKBLUE}{text}{Colors.ENDC}'
+
+
+class ClassResult(AnalysisResult):
+    """Stores analysis result of a single class."""
+
+    def __init__(self, name: str, methods: dict[MethodResult]):
+        super().__init__()
+        self.update(methods)
+        self.name = name
+
+    def __str__(self):
+        sep = "\n" + ('-' * self.LN_LEN) + '\n'
+        c_name = self.coloring(self.name)
+        items = map(str, self.values())
+        return f'class {c_name}{sep}{sep.join(items)}'
+
+
+class MethodResult(AnalysisResult):
+    """Stores analysis result of a class method."""
+
+    FLW_SEP = "🌢"
+
+    def __init__(self, name: str, source: str, flows: list[list[str]],
+                 variables: set[str]):
+        super().__init__()
+        super().__setitem__('variables', list(variables))
+        super().__setitem__('source', source)
+        super().__setitem__('flows', flows)
+        self.name = name
+
+    @staticmethod
+    def flow_fmt(tpl):
+        return MethodResult.coloring(
+            f'{tpl[0]}{MethodResult.FLW_SEP}{tpl[1]}')
+
+    @staticmethod
+    def len_est(value):
+        """estimate required chars to print a value"""
+        if isinstance(value, str):
+            return len(value)
+        return sum([len(x) for x in value]) + 1
+
+    @staticmethod
+    def chunk(vals, max_w, sp):
+        """splits printable values into chunks."""
+        result, fst, acc = [], [], 0
+        while vals:
+            v = vals.pop(0)
+            vl = sp + MethodResult.len_est(v)
+            if acc + vl >= max_w:
+                result.append(fst)
+                fst, acc = [], 0
+            acc, fst = acc + vl, fst + [v]
+        return result + [fst]
+
+    def join_(self, key, fmt=None):
+        # line length and left padding
+        w, lpad = self.LN_LEN - 8, 8
+        # item formatting function
+        f = fmt or self.coloring
+        # separators for items and lines
+        sep1, sep2 = ', ', '\n' + (' ' * lpad)
+        # construct the output
+        sorted_ = sorted(self.__getitem__(key))
+        # split into lines by length
+        chunks = self.chunk(sorted_, w, len(sep1))
+        # format and join items in each line
+        lines = [sep1.join(map(f, ch)) for ch in chunks]
+        return sep2.join(lines) or self.coloring('-')
+
+    def __str__(self):
+        code = self.__getitem__("source")
+        vars_ = self.join_("variables")
+        flows = self.join_("flows", self.flow_fmt)
+        name = self.coloring(self.name)
+        return (f'{code}\n'
+                f'Method: {name}\n'
+                f'Vars:   {vars_}\n'
+                f'Flows:  {flows}')
+
+
 class Timeable(dict):
 
     def __init__(self, prt: dict, name: str):
@@ -107,23 +206,21 @@ class Timeable(dict):
 
     def start(self):
         super().__setitem__('start', time.time_ns())
-        return self
 
     def stop(self):
         end, start = time.time_ns(), super().__getitem__('start')
         super().__setitem__('end', end)
         super().__setitem__('ms', Timeable.millis(start, end))
-        super().__setitem__('s', Timeable.sec(start, end))
-        return self
-
-    @staticmethod
-    def time_diff(start, end) -> int:
-        return end - start
+        super().__setitem__('sec', Timeable.sec(start, end))
 
     @staticmethod
     def sec(start, end) -> float:
-        return round(Timeable.time_diff(start, end) / 1e9, 1)
+        return Timeable.measure(end, start, 1e9)
 
     @staticmethod
     def millis(start, end) -> float:
-        return round(Timeable.time_diff(start, end) / 1e6, 1)
+        return Timeable.measure(end, start, 1e6)
+
+    @staticmethod
+    def measure(start, end, units) -> float:
+        return round((end - start) / units, 4)
