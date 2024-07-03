@@ -65,5 +65,5 @@ cloc:
 
 clean:
 	@rm -rf $(O_DIR) $(B_DIR) $(DEFAULT_OUT)
-	@rm -rf tests/.pytest_cache .coverage .cov_missing
+	@rm -rf .pytest_cache tests/.pytest_cache .coverage .cov_missing
 	@find . -name \*.Program.txt -type f -delete
