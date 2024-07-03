@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import Optional
 
-from analysis import Result
+from . import Result, Timeable, AnalysisResult, Colors
 
 logger = logging.getLogger(__name__)
 
@@ -20,20 +20,16 @@ class AbstractAnalyzer(ABC):
         self.tree = None
 
     @property
-    def input_file(self):
+    def input_file(self) -> str:
         return self._result.infile
 
     @property
-    def analysis_result(self):
+    def analysis_result(self) -> AnalysisResult:
         return self._result.analysis_result
 
     @analysis_result.setter
-    def analysis_result(self, result: dict):
+    def analysis_result(self, result: AnalysisResult):
         self._result.analysis_result = result
-
-    @staticmethod
-    def exec_nullable(f: Callable):
-        return f() if f else None
 
     @staticmethod
     def lang_match(input_file: str) -> bool:  # pragma: no cover
@@ -48,14 +44,12 @@ class AbstractAnalyzer(ABC):
         return False
 
     @abstractmethod
-    def parse(self, on_start: Optional[Callable] = None,
-              on_stop: Optional[Callable] = None) \
+    def parse(self, t: Optional[Timeable] = None) \
             -> AbstractAnalyzer:  # pragma: no cover
         """Parses the input file.
 
         Arguments:
-            on_start: function to call when parsing starts
-            on_stop: function to call when parsing stops
+            t: time-measuring utility
 
         Returns:
             The analyzer object.
@@ -63,14 +57,12 @@ class AbstractAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def analyze(self, on_start: Optional[Callable] = None,
-                on_stop: Optional[Callable] = None) \
-            -> dict:  # pragma: no cover
+    def analyze(self, t: Optional[Timeable] = None) \
+            -> AbstractAnalyzer:  # pragma: no cover
         """Analyzes input file.
 
         Arguments:
-            on_start: function to call when analysis starts
-            on_stop: function to call when analysis stops
+            t: time-measuring utility
 
         Returns:
             The analysis results as a dictionary.
@@ -91,7 +83,7 @@ class BaseVisitor(ABC):
         """
         text = BaseVisitor.og_text(ctx)
         desc_ = f" {desc}" if desc else ""
-        colored = f'{bcolors.WARNING}{text}{bcolors.ENDC}'
+        colored = f'{Colors.WARNING}{text}{Colors.ENDC}'
         logger.warning(f'unhandled{desc_} {colored}')
 
     @staticmethod
@@ -144,114 +136,3 @@ class BaseVisitor(ABC):
         numbers = '₀,₁,₂,₃,₄,₅,₆,₇,₈,₉'.split(',')
         int_chars = [int(c) for c in str(n)]
         return ''.join([numbers[i] for i in int_chars])
-
-
-class AnalysisResult(dict):
-    """Base class for a capturing analysis results."""
-
-    LN_LEN = 52
-
-    @staticmethod
-    def coloring(text: str) -> str:
-        """Adds color to text.
-
-        Arguments:
-            text: text to color.
-
-        Returns:
-            The original text with added color.
-        """
-        return f'{bcolors.OKBLUE}{text}{bcolors.ENDC}'
-
-
-class ClassResult(AnalysisResult):
-    """Stores analysis result of a single class."""
-
-    def __init__(self, name: str, methods: dict[MethodResult]):
-        super().__init__()
-        self.update(methods)
-        self.name = name
-
-    def __str__(self):
-        sep = "\n" + ('-' * self.LN_LEN) + '\n'
-        c_name = self.coloring(self.name)
-        items = map(str, self.values())
-        return f'class {c_name}{sep}{sep.join(items)}'
-
-
-class MethodResult(AnalysisResult):
-    """Stores analysis result of a class method."""
-
-    FLW_SEP = "🌢"
-
-    def __init__(self, name: str, source: str, flows: list[list[str]],
-                 variables: set[str]):
-        super().__init__()
-        super().__setitem__('variables', list(variables))
-        super().__setitem__('source', source)
-        super().__setitem__('flows', flows)
-        self.name = name
-
-    @staticmethod
-    def flow_fmt(tpl):
-        return MethodResult.coloring(
-            f'{tpl[0]}{MethodResult.FLW_SEP}{tpl[1]}')
-
-    @staticmethod
-    def len_est(value):
-        """estimate required chars to print a value"""
-        if isinstance(value, str):
-            return len(value)
-        return sum([len(x) for x in value]) + 1
-
-    @staticmethod
-    def chunk(vals, max_w, sp):
-        """splits printable values into chunks."""
-        result, fst, acc = [], [], 0
-        while vals:
-            v = vals.pop(0)
-            vl = sp + MethodResult.len_est(v)
-            if acc + vl >= max_w:
-                result.append(fst)
-                fst, acc = [], 0
-            acc, fst = acc + vl, fst + [v]
-        return result + [fst]
-
-    def join_(self, key, fmt=None):
-        # line length and left padding
-        w, lpad = self.LN_LEN - 8, 8
-        # item formatting function
-        f = fmt or self.coloring
-        # separators for items and lines
-        sep1, sep2 = ', ', '\n' + (' ' * lpad)
-        # construct the output
-        sorted_ = sorted(self.__getitem__(key))
-        # split into lines by length
-        chunks = self.chunk(sorted_, w, len(sep1))
-        # format and join items in each line
-        lines = [sep1.join(map(f, ch)) for ch in chunks]
-        return sep2.join(lines) or self.coloring('-')
-
-    def __str__(self):
-        code = self.__getitem__("source")
-        vars_ = self.join_("variables")
-        flows = self.join_("flows", self.flow_fmt)
-        name = self.coloring(self.name)
-        return (f'{code}\n'
-                f'Method: {name}\n'
-                f'Vars:   {vars_}\n'
-                f'Flows:  {flows}')
-
-
-# noinspection PyClassHasNoInit,PyPep8Naming
-class bcolors:
-    """From https://stackoverflow.com/a/287944"""
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'

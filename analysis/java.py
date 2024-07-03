@@ -3,17 +3,15 @@ from __future__ import annotations
 import logging
 import operator
 import sys
-from typing import Optional, Dict, Callable, List, Tuple
-
-from antlr4 import FileStream, CommonTokenStream
 from functools import reduce
 from itertools import product
+from typing import Optional, Dict, List, Tuple
 
-from . import AbstractAnalyzer, AnalysisResult, ClassResult, MethodResult
-from . import BaseVisitor
-from analysis.parser.JavaLexer import JavaLexer
-from analysis.parser.JavaParser import JavaParser
-from analysis.parser.JavaParserVisitor import JavaParserVisitor
+from antlr4 import FileStream, CommonTokenStream
+
+from . import AbstractAnalyzer, BaseVisitor
+from . import AnalysisResult, ClassResult, MethodResult
+from . import JavaLexer, JavaParser, JavaParserVisitor
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +37,13 @@ class JavaAnalyzer(AbstractAnalyzer):
         """
         return input_file.endswith('.java')
 
-    def parse(self, on_start: Optional[Callable] = None,
-              on_stop: Optional[Callable] = None) -> JavaAnalyzer:
+    def parse(self, t: Optional[Timeable] = None) -> JavaAnalyzer:
         """Attempt to parse the input file.
 
         This method terminates running process if parse fails.
 
         Arguments:
-            on_start: function to call when parsing starts
-            on_stop: function to call when parsing stops
+            t: timing utility
 
         Raises:
             AssertionError: if input file is not analyzable.
@@ -57,26 +53,25 @@ class JavaAnalyzer(AbstractAnalyzer):
         """
         assert JavaAnalyzer.lang_match(self.input_file)
         logger.debug(f'parsing {self.input_file}')
-        self.exec_nullable(on_start)
+        t.start() if t else None
         input_stream = FileStream(self.input_file, encoding="UTF-8")
         lexer = JavaLexer(input_stream)
         stream = CommonTokenStream(lexer)
         parser = JavaParser(stream)
-        self.exec_nullable(on_stop)
+        t.stop() if t else None
         if parser.getNumberOfSyntaxErrors() > 0:
             return sys.exit(1)
         logger.debug("parsed successfully")
         self.tree = parser.compilationUnit()
         return self
 
-    def analyze(self, on_start: Optional[Callable] = None,
-                on_stop: Optional[Callable] = None) -> JavaAnalyzer:
+    def analyze(self, t: Optional[Timeable] = None) -> JavaAnalyzer:
         """Performs analysis on the input file.
         This requires parse has already been performed.
 
         Arguments:
-            on_start: function to call when parsing starts
-            on_stop: function to call when parsing stops
+            t: timing utility
+
 
         Raises:
             AssertionError: if input has not been parsed successfully.
@@ -85,9 +80,10 @@ class JavaAnalyzer(AbstractAnalyzer):
             The analyzer.
         """
         assert self.tree
-        self.exec_nullable(on_start)
+        t.start() if t else None
         self.analysis_result = ClassVisitor().visit(self.tree).result
-        self.exec_nullable(on_stop)
+        t.stop() if t else None
+        logger.debug("Analysis phase completed")
         return self
 
 
@@ -108,10 +104,9 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
 class ClassVisitor(ExtVisitor):
     """Visits each class (possibly nested) and its methods."""
 
-    # noinspection PyTypeChecker
     def __init__(self, parent: ClassVisitor = None):
         self.parent: ClassVisitor = parent
-        self.result: Dict[AnalysisResult] = {}
+        self.result: Dict[AnalysisResult] = AnalysisResult()
         self.name: str = ''
 
     def hierarchy(self, name):
@@ -149,8 +144,9 @@ class ClassVisitor(ExtVisitor):
         logger.debug(f'method: {name}')
         prog = RecVisitor().visit(ctx.methodBody())
         mat = self.mat_format(prog.matrix)
-        mth = MethodResult(name, self.og_text(ctx), mat, prog.vars)
-        # noinspection PyTypeChecker
+        mth = MethodResult(
+            name, self.hierarchy(name),
+            self.og_text(ctx), mat, prog.vars)
         self.record(self, name, mth)
 
 
@@ -199,7 +195,8 @@ class RecVisitor(ExtVisitor):
         return RecVisitor.assign(occ, out)
 
     @staticmethod
-    def lvars(ctx: JavaParser.ExpressionContext) -> Tuple[set[str], set[str]]:
+    def lvars(ctx: JavaParser.ExpressionContext) \
+            -> Tuple[set[str], set[str]]:
         """Find variables in an expression, with added knowledge that
         expression occurs on left-side of assignment, or in isolation.
 
@@ -269,7 +266,8 @@ class RecVisitor(ExtVisitor):
             if (opt := op.getText()) == ".":
                 return RecVisitor.rvars(lc)  # take leftmost
             # see JavaLexer L#155
-            elif opt in '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%'.split(','):
+            elif opt in '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%'.split(
+                    ','):
                 return RecVisitor.rvars(lc) | RecVisitor.rvars(rc)
             elif lc.getText() == '(' and rc.getText() == ')':
                 return RecVisitor.rvars(op)
@@ -368,7 +366,8 @@ class RecVisitor(ExtVisitor):
             # ASSIGNMENT: identify from operator form
             # if compound, out-variable is also an in-variable,
             # but such data flow is irrelevant for this analysis.
-            if op in '=,+=,-=,*=,/=,%=,&=,|=,^=,>>=,>>>=,<<='.split(','):
+            if op in '=,+=,-=,*=,/=,%=,&=,|=,^=,>>=,>>>=,<<='.split(
+                    ','):
                 logger.debug(f'bop: {ctx.getText()}')
                 in_l, out_v = self.lvars(lc)
                 in_v = self.rvars(rc)
@@ -413,7 +412,8 @@ class RecVisitor(ExtVisitor):
         self.skipped(ctx, f'exp {ctx.getChildCount()}')
         super().visitExpression(ctx)
 
-    def visitSwitchExpression(self, ctx: JavaParser.SwitchExpressionContext):
+    def visitSwitchExpression(self,
+                              ctx: JavaParser.SwitchExpressionContext):
         """It's a fancy switch."""
         return self.__switch(ctx)
 

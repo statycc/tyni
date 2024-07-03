@@ -6,49 +6,40 @@ A static analyzer implementing our information flow calculus (work in progress).
 
 1. User specifies an input file.
 2. The input is parsed into a parse-tree.
-3. The analysis processes the parse tree and captures security-flow matrix data.
-4. The result of the previous step is written to a file (an intermediate result).
-5. the captured matrix data is evaluated (separately). 
+3. Security-flow matrix data is captured from the parse tree.
+4. The matrix data is evaluated against security levels using SMT solver. 
 
-Same, but visually in two steps:
+Same, but visually in steps:
 
 ```
 [input].java                         ┐
----> parser                          │
----> parse-tree                      ├─ analysis phase (* in progress)
----> analyze tree                    │  
----> gather matrix data              │
----> write data to [input].json      ┘
-
-[input].json                         ┐
----> evaluate matrix data            ├─ evaluation phase [TODO]
+---> parser                          ├─ parsing
+---> parse-tree                      ┘
+                                     ┐
+---> analyze tree                    ├─ analysis
+---> gather matrix data              ┘      
+                                     ┐
+---> evaluate matrix data            ├─ evaluation
 ---> get interesting info            ┘  
 ```
 
-**Reading the analysis result**
+**Interpreting the analysis results**
 
-The data captured in the analysis phase includes:
+The analyzer captures data during the execution phases, including e.g., input details, execution arguments, and timing information.
+The data captured during the analysis and evaluation phases includes, for each method:
 
 ```
-input              # path to the analyzed input file            str                
-result             # analysis outcomes                          dict                
-  class_name       # full hierarchical name                     dict[str,dict]     
-    identifier     # method name #1                             dict[str,dict]     
-      variables    # encountered variables, see note below      List[str]           
-      source       # method source code, for reference          str                 
-      flows        # violating variable pairs (in, out)         List[(str,str)]    
-    identifier     # method name #2 (if any)                  
-      …            # method data                  
-  class_name       # another class (if any)                  
-    …              # class data                  
+method name        # Full name, as class_name(s).method_name
+variables (Vars)   # Encountered variables, see note below               
+flows              # Interfering variable pairs (in, out)    
+satisfiability     # SMT-solver outcome: SAT or UNSAT                 
+model              # If SAT, the satisfiable security levels  
+                   #   that make the program non-inteferring           
 ```
 
-The variables list does not necessarily contain every variable of the program.
-It excludes variables that occur only in "uninteresting" statements, e.g., an unused variable declaration. 
-This is because the analysis handles only specific statements -- those that belong to the analysis syntax -- and skips others.
-The variables list contains variables that occurred in these handled statements.
-
-The results do not show a full security flow matrix, but combining flows and variables is sufficient to capture fully the matrix data, since it is a binary matrix.
+The variables list does not necessarily contain every variable of the method.
+Variables that occur only in "uninteresting" statements, e.g., an unused variable declaration, are excluded.
+To inspect all captured data, save the result to a file. 
 
 ## Usage
 
@@ -64,7 +55,7 @@ The results do not show a full security flow matrix, but combining flows and var
    Supported input languages: Java v. 7/8/11/17.
 
    By default, the result is pretty-printed at the screen.
-   To write the result to a file, specify `-o FILE`.
+   To write the result to a file, specify `--save`.
 
    ```
    python3 -m analysis [input program] {optional args}
@@ -140,5 +131,5 @@ make help     # lists other available commands
   bytecode.
 
 * It is also not necessary to rebuild the parser; it is already built. 
-  But it is easy to rebuild, if necessary, with ANTLR and using the Makefile commands.
+  But it is easy to rebuild, if necessary, with ANTLR and the Makefile commands.
 
