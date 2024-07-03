@@ -44,11 +44,13 @@ def main():
     result.timer.start()
     analyzer = MyAnalyzer(result)
     analyzer.parse(result.t_parse)
-    if args.run != Steps.PARSE.value:
-        analyzer.analyze(result.t_analysis)
-        if args.run != Steps.ANALYZE.value:
-            gc.collect()
-            Evaluate(result).solve_all(result.t_eval)
+    if args.run == Steps.PARSE.value:
+        result.timer.stop()
+        return result.save()
+    analyzer.analyze(result.t_analysis)
+    if args.run != Steps.ANALYZE.value:
+        gc.collect()
+        Evaluate(result).solve_all(result.t_eval)
     result.timer.stop()
     result.to_pretty().save()
 
