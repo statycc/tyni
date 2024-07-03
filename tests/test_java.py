@@ -5,7 +5,7 @@ def helper(prog, cls_name, method):
     res = Result(f'programs/{prog}/Program.java')
     JavaAnalyzer(res).parse().analyze()
     mth = res.analysis_result[cls_name][method]
-    return sorted(mth['variables']), mth['flows']
+    return sorted(mth.ids), mth.flows
 
 
 def test_ifc_prog1():

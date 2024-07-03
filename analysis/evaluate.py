@@ -21,7 +21,7 @@ class Evaluate:
     def solve_all(self, t: Optional[Timeable] = None):
         cls_methods = [j for sub in [[
             (c, m) for m in self.ar.children_of(c).keys()
-            if self.ar[c][m].variables]
+            if self.ar[c][m].ids]
             for c in self.ar.children()] for j in sub]
         logger.debug(f'Methods to evaluate: {len(cls_methods)}')
 
@@ -38,7 +38,7 @@ class Evaluate:
     def solve(method: MethodResult, **levels):
 
         solver = Solver()
-        vrs, flows = method.variables, method.flows
+        vrs, flows = method.ids, method.flows
         s_vars = Ints(' '.join([f'l({v})' for v in vrs]))
 
         # security levels are (positive) ints

@@ -177,7 +177,7 @@ class MethodResult(AnalysisResult):
                  variables: set[str]):
         super().__init__()
         super().__setitem__('full_name', full_name)
-        super().__setitem__('variables', list(variables))
+        super().__setitem__('identifiers', list(variables))
         super().__setitem__('source', source)
         super().__setitem__('flows', flows)
         super().__setitem__('sat', None)
@@ -189,8 +189,8 @@ class MethodResult(AnalysisResult):
         return self.__getitem__('full_name')
 
     @property
-    def variables(self) -> Tuple[str]:
-        return tuple(self.__getitem__('variables'))
+    def ids(self) -> Tuple[str]:
+        return tuple(self.__getitem__('identifiers'))
 
     @property
     def flows(self) -> List[str, str]:
@@ -254,7 +254,7 @@ class MethodResult(AnalysisResult):
 
     def __str__(self):
         name = self.bcolor(self.full_name)
-        vars_ = self.join_(self.variables)
+        vars_ = self.join_(self.ids)
         flows = self.join_(self.flows, self.flow_fmt)
         model = self.join_(self.model.split(", ")) if self.sat else '-'
         has_eval = f' ==> {self.bcolor(self.sat)}' if self.sat else ''

@@ -30,7 +30,7 @@ The data captured during the analysis and evaluation phases includes, for each m
 
 ```
 method name        # Full name (class.method)
-variables (vars)   # Encountered variables, see note below               
+identifiers        # Names of encountered variables, see note below               
 flows              # Interfering variable pairs (in, out)    
 satisfiability     # SMT-solver outcome, SAT or UNSAT                 
 model              # If SAT, security levels to make the method non-interfering           

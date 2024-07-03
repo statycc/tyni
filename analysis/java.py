@@ -100,6 +100,11 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         n = ctx.getChildCount()
         return ctx.getChild(n - 1) if n else None
 
+    @staticmethod
+    def is_array_exp(ctx: JavaParser.compilationUnit):
+        return ctx.getChild(1).getText() == "[" and \
+               ExtVisitor.last_child(ctx).getText() == "]"
+
 
 class ClassVisitor(ExtVisitor):
     """Visits each class (possibly nested) and its methods."""
@@ -222,16 +227,14 @@ class RecVisitor(ExtVisitor):
                 id_node = c1 if c1t not in u_ops else c2
                 return RecVisitor.lvars(id_node)
 
-        elif cc >= 4:  # arrays
-            if (ctx.getChild(1).getText() == "[" and
-                    RecVisitor.last_child(ctx).getText() == "]"):
-                all_vars = IdVisitor().visit(ctx)
-                # the left-most is out, rest are in
-                fst = all_vars.flat.pop(0)
-                rest = all_vars.vars
-                logger.debug(f'L/out: {fst}')
-                logger.debug(f'L/in:  {", ".join(rest)}')
-                return rest, {fst}
+        elif cc >= 4 and RecVisitor.is_array_exp(ctx):  # arrays
+            all_vars = IdVisitor().visit(ctx)
+            # the left-most is out, rest are in
+            fst = all_vars.flat.pop(0)
+            rest = all_vars.vars
+            logger.debug(f'L/out: {fst}')
+            logger.debug(f'L/in:  {", ".join(rest)}')
+            return rest, {fst}
 
         # otherwise skip
         RecVisitor.skipped(ctx)
@@ -252,19 +255,22 @@ class RecVisitor(ExtVisitor):
         Returns:
             Set of in-variables.
         """
+
+        def default_handler():
+            if in_v := RecVisitor.occurs(ctx):
+                logger.debug(f'R/in:  {", ".join(in_v)}')
+            return in_v
+
         if (cc := ctx.getChildCount()) == 0:
             return set()
 
-        # identifiers, constants
-        elif cc == 1:
-            # base case / terminal
+        elif cc == 1:  # terminal identifiers, constants
             if ctx.getChild(0).getChildCount() == 0:
-                return RecVisitor.occurs(ctx)
+                return default_handler()
             else:
                 return RecVisitor.rvars(ctx.getChild(0))
 
-        # unary, new, method calls
-        elif cc == 2:
+        elif cc == 2:  # unary, new, method calls
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
             # skip object inits with identifiers
@@ -283,44 +289,41 @@ class RecVisitor(ExtVisitor):
                 return set()
             # something else
             RecVisitor.skipped(ctx, 'rvars-2')
-            return RecVisitor.occurs(ctx)
+            return default_handler()
 
-        # binary ops
-        elif cc == 3:
+        elif cc == 3:  # binary ops
             lc, op, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             if (opt := op.getText()) == ".":
                 return RecVisitor.rvars(lc)  # take leftmost
             # see JavaLexer L#155
-            elif opt in '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%'.split(
-                    ','):
+            elif opt in '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%' \
+                    .split(','):
                 return RecVisitor.rvars(lc) | RecVisitor.rvars(rc)
             elif lc.getText() == '(' and rc.getText() == ')':
                 return RecVisitor.rvars(op)
             # something else
             RecVisitor.skipped(ctx, 'rvars-3')
-            return RecVisitor.occurs(ctx)
+            return default_handler()
 
-        # ternary
-        elif cc == 5:
+        elif cc == 5:  # ternary
             c0, c1, c2, c3, c4 = [ctx.getChild(n) for n in range(5)]
             if c1.getText() == "?" and c3.getText() == ":":
                 return (RecVisitor.rvars(c0) | RecVisitor.rvars(c2) |
                         RecVisitor.rvars(c4))
 
-        # switch expression
-        if ctx.getChild(0).getText() == "switch":
+        if ctx.getChild(0).getText() == "switch":  # switch expression
             # TODO: can there be new, out vars?
+            #   Yes, in a switch expression
             vst = RecVisitor().visit(ctx)
+            logger.debug(f'R/in:  {", ".join(vst.vars)}')
             return vst.vars
 
-        # array accesses
-        if (ctx.getChild(1).getText() == "[" and
-                RecVisitor.last_child(ctx).getText() == "]"):
-            return RecVisitor.occurs(ctx)
+        if RecVisitor.is_array_exp(ctx):  # array accesses
+            return default_handler()
 
-        else:  # something else
-            RecVisitor.skipped(ctx, f'rvars-{cc}')
-        return RecVisitor.occurs(ctx)
+        # something else
+        RecVisitor.skipped(ctx, f'rvars-{cc}')
+        return default_handler()
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
         self.skipped(ctx, 'call')
@@ -391,12 +394,11 @@ class RecVisitor(ExtVisitor):
             # ASSIGNMENT: identify from operator form
             # if compound, out-variable is also an in-variable,
             # but such data flow is irrelevant for this analysis.
-            if op in '=,+=,-=,*=,/=,%=,&=,|=,^=,>>=,>>>=,<<='.split(
-                    ','):
+            if op in '=,+=,-=,*=,/=,%=,&=,|=,^=,>>=,>>>=,<<=' \
+                    .split(','):
                 logger.debug(f'bop: {ctx.getText()}')
                 in_l, out_v = self.lvars(lc)
                 in_v = self.rvars(rc)
-                logger.debug(f'R/in:  {", ".join(in_v) or "-"}')
                 self.merge(self.vars, out_v, in_v, in_l)
                 self.merge(self.out_v, out_v)
                 flows = self.compose(
@@ -437,8 +439,8 @@ class RecVisitor(ExtVisitor):
         self.skipped(ctx, f'exp {ctx.getChildCount()}')
         super().visitExpression(ctx)
 
-    def visitSwitchExpression(self,
-                              ctx: JavaParser.SwitchExpressionContext):
+    def visitSwitchExpression(
+            self, ctx: JavaParser.SwitchExpressionContext):
         """It's a fancy switch."""
         return self.__switch(ctx)
 
