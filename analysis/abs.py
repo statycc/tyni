@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, List
 
-from . import Result, Timeable, AnalysisResult, Colors
+from . import Result, Timeable, AnalysisResult
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +73,8 @@ class AbstractAnalyzer(ABC):
 class BaseVisitor(ABC):
     """Base class for a parse-tree visitor."""
 
-    @staticmethod
-    def skipped(ctx, desc: str = "") -> None:
+    # noinspection PyMethodMayBeStatic
+    def skipped(self, ctx, desc: str = "") -> None:
         """Displays a colored warning.
 
         Arguments:
@@ -83,8 +83,7 @@ class BaseVisitor(ABC):
         """
         text = BaseVisitor.og_text(ctx)
         desc_ = f" {desc}" if desc else ""
-        colored = f'{Colors.WARNING}{text}{Colors.ENDC}'
-        logger.warning(f'unhandled{desc_} {colored}')
+        logger.warning(f'unhandled{desc_} {text}')
 
     @staticmethod
     def og_text(ctx) -> str:
@@ -102,7 +101,7 @@ class BaseVisitor(ABC):
         return input_stream.getText(start, stop)
 
     @staticmethod
-    def uniq_name(init, known) -> str:
+    def uniq_name(init: str, known: List[str]) -> str:
         """Find a unique replacement name for a variable.
 
         By "reverse pigeon-hole", this method always finds

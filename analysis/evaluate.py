@@ -1,6 +1,6 @@
 # noinspection PyPackageRequirements
 import logging
-from typing import Optional
+from typing import Optional, Dict
 
 from z3 import Solver, Ints
 
@@ -24,7 +24,6 @@ class Evaluate:
             if self.ar[c][m].ids]
             for c in self.ar.children()] for j in sub]
         logger.debug(f'Methods to evaluate: {len(cls_methods)}')
-
         t.start() if t else None
         for (cls, m_name) in cls_methods:
             method = self.ar[cls][m_name]
@@ -35,7 +34,7 @@ class Evaluate:
 
     # noinspection PyPep8Naming
     @staticmethod
-    def solve(method: MethodResult, **levels):
+    def solve(method: MethodResult, **levels: Dict[str, int]):
 
         solver = Solver()
         vrs, flows = method.ids, method.flows

@@ -33,7 +33,8 @@ method name        # Full name (class.method)
 identifiers        # Names of encountered variables, see note below               
 flows              # Interfering variable pairs (in, out)    
 satisfiability     # SMT-solver outcome, SAT or UNSAT                 
-model              # If SAT, security levels to make the method non-interfering           
+model              # If SAT, security levels to make the method non-interfering
+skips              # List of unhandled statements           
 ```
 
 * The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.

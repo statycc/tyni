@@ -7,6 +7,7 @@ from argparse import ArgumentParser, Namespace
 from enum import Enum
 from typing import Optional, Type
 from sys import argv
+from os.path import isfile
 
 from . import Result, AbstractAnalyzer, JavaAnalyzer, Evaluate
 from . import Colors, utils
@@ -32,6 +33,10 @@ def main():
     result = Result(args.input, args.out, args.save, args=raw_args)
     logger = __logger_setup(
         args.log_level, result.log_fn if args.log else None)
+    if not isfile(args.input):
+        logger.fatal(f'{Colors.FAIL}File does not exist: '
+                     f'{args.input}{Colors.ENDC}')
+        sys.exit(1)
 
     # noinspection PyPep8Naming
     MyAnalyzer = __choose_analyzer(args.input)

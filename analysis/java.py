@@ -72,7 +72,6 @@ class JavaAnalyzer(AbstractAnalyzer):
         Arguments:
             t: timing utility
 
-
         Raises:
             AssertionError: if input has not been parsed successfully.
 
@@ -102,7 +101,8 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
 
     @staticmethod
     def is_array_exp(ctx: JavaParser.compilationUnit):
-        return ctx.getChild(1).getText() == "[" and \
+        return ctx.getChildCount() > 2 and \
+               ctx.getChild(1).getText() == "[" and \
                ExtVisitor.last_child(ctx).getText() == "]"
 
 
@@ -149,10 +149,9 @@ class ClassVisitor(ExtVisitor):
         logger.debug(f'method: {name}')
         prog = RecVisitor().visit(ctx.methodBody())
         mat = self.mat_format(prog.matrix)
-        mth = MethodResult(
-            name, self.hierarchy(name),
-            self.og_text(ctx), mat, prog.vars)
-        self.record(self, name, mth)
+        self.record(self, name, MethodResult(
+            name, self.hierarchy(name), self.og_text(ctx),
+            mat, prog.vars, prog.skips))
 
 
 class RecVisitor(ExtVisitor):
@@ -163,6 +162,11 @@ class RecVisitor(ExtVisitor):
         self.out_v = set()  # encountered out variables
         self.new_v = set()  # encountered declarations
         self.matrix: List[Tuple[str, str]] = []  # data flows (in, out)
+        self.skips = []
+
+    def skipped(self, ctx, desc: str = "") -> None:
+        super().skipped(ctx, desc)
+        self.skips += [BaseVisitor.og_text(ctx)]
 
     def subst(self, old_: str, new_: str):
         """Substitutes variable name in place.
@@ -199,8 +203,7 @@ class RecVisitor(ExtVisitor):
     def correction(occ, out):
         return RecVisitor.assign(occ, out)
 
-    @staticmethod
-    def lvars(ctx: JavaParser.ExpressionContext) \
+    def lvars(self, ctx: JavaParser.ExpressionContext) \
             -> Tuple[set[str], set[str]]:
         """Find variables in an expression, with added knowledge that
         expression occurs on left-side of assignment -or- in isolation.
@@ -217,7 +220,7 @@ class RecVisitor(ExtVisitor):
                 logger.debug(f'L/out: {", ".join(out_v)}')
                 return set(), out_v
             else:
-                return RecVisitor.lvars(ctx.getChild(0))
+                return self.lvars(ctx.getChild(0))
 
         elif cc == 2:  # standalone unary
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
@@ -225,7 +228,7 @@ class RecVisitor(ExtVisitor):
             u_ops = '++,--,!,~,+,-'.split(',')
             if c1t in u_ops or c2t in u_ops:
                 id_node = c1 if c1t not in u_ops else c2
-                return RecVisitor.lvars(id_node)
+                return self.lvars(id_node)
 
         elif cc >= 4 and RecVisitor.is_array_exp(ctx):  # arrays
             all_vars = IdVisitor().visit(ctx)
@@ -237,11 +240,10 @@ class RecVisitor(ExtVisitor):
             return rest, {fst}
 
         # otherwise skip
-        RecVisitor.skipped(ctx)
+        self.skipped(ctx)
         return set(), set()
 
-    @staticmethod
-    def rvars(ctx: JavaParser.ExpressionContext) -> set[str]:
+    def rvars(self, ctx: JavaParser.ExpressionContext) -> set[str]:
         """Find variables in an expression, with added knowledge that
         expression occurs on right-side of assignment.
 
@@ -268,48 +270,47 @@ class RecVisitor(ExtVisitor):
             if ctx.getChild(0).getChildCount() == 0:
                 return default_handler()
             else:
-                return RecVisitor.rvars(ctx.getChild(0))
+                return self.rvars(ctx.getChild(0))
 
         elif cc == 2:  # unary, new, method calls
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
             # skip object inits with identifiers
             if c1t == "new":
-                if RecVisitor.occurs(ctx):
-                    RecVisitor.skipped(ctx, 'vars:')
+                self.skipped(ctx, 'new')
                 return set()
             u_ops = '++,--,!,~,+,-'.split(',')
             if c1t in u_ops or c2t in u_ops:
                 id_node = c1 if c1t not in u_ops else c2
-                return RecVisitor.rvars(id_node)
+                return self.rvars(id_node)
             if (c2.getChildCount() == 3 and
                     c2.getChild(0).getText() == '(' and
                     c2.getChild(2).getText() == ')'):
-                RecVisitor.skipped(ctx, 'vars:')
+                self.skipped(ctx, 'vars:')
                 return set()
             # something else
-            RecVisitor.skipped(ctx, 'rvars-2')
+            self.skipped(ctx, 'rvars-2')
             return default_handler()
 
         elif cc == 3:  # binary ops
             lc, op, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             if (opt := op.getText()) == ".":
-                return RecVisitor.rvars(lc)  # take leftmost
+                self.skipped(ctx, 'dot-op')
+                return set()
             # see JavaLexer L#155
             elif opt in '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%' \
                     .split(','):
-                return RecVisitor.rvars(lc) | RecVisitor.rvars(rc)
+                return self.rvars(lc) | self.rvars(rc)
             elif lc.getText() == '(' and rc.getText() == ')':
-                return RecVisitor.rvars(op)
+                return self.rvars(op)
             # something else
-            RecVisitor.skipped(ctx, 'rvars-3')
+            self.skipped(ctx, 'rvars-3')
             return default_handler()
 
         elif cc == 5:  # ternary
             c0, c1, c2, c3, c4 = [ctx.getChild(n) for n in range(5)]
             if c1.getText() == "?" and c3.getText() == ":":
-                return (RecVisitor.rvars(c0) | RecVisitor.rvars(c2) |
-                        RecVisitor.rvars(c4))
+                return self.rvars(c0) | self.rvars(c2) | self.rvars(c4)
 
         if ctx.getChild(0).getText() == "switch":  # switch expression
             # TODO: can there be new, out vars?
@@ -322,7 +323,7 @@ class RecVisitor(ExtVisitor):
             return default_handler()
 
         # something else
-        RecVisitor.skipped(ctx, f'rvars-{cc}')
+        self.skipped(ctx, f'rvars-{cc}')
         return default_handler()
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
@@ -352,7 +353,7 @@ class RecVisitor(ExtVisitor):
         if ctx.blockLabel:
             return super().visitStatement(ctx)
         elif ctx.ASSERT():
-            return RecVisitor.skipped(ctx)
+            return self.skipped(ctx)
         elif ctx.IF():
             return self.__if(ctx)
         elif ctx.FOR():
@@ -362,21 +363,21 @@ class RecVisitor(ExtVisitor):
         elif ctx.WHILE():
             return self.__while(ctx)
         elif ctx.TRY():
-            return RecVisitor.skipped(ctx)
+            return self.skipped(ctx)
         elif ctx.SWITCH():
             return self.__switch(ctx)
         elif ctx.SYNCHRONIZED():
-            return RecVisitor.skipped(ctx)
+            return self.skipped(ctx)
         elif ctx.RETURN():
-            return RecVisitor.skipped(ctx)
+            return self.skipped(ctx)
         elif ctx.THROW():
-            return RecVisitor.skipped(ctx)
+            return self.skipped(ctx)
         elif ctx.BREAK():
             return
         elif ctx.CONTINUE():
             return
         elif ctx.YIELD():
-            return RecVisitor.skipped(ctx)
+            return self.skipped(ctx)
         elif ctx.SEMI():
             return super().visitStatement(ctx)
         elif ctx.statementExpression:
@@ -485,7 +486,9 @@ class RecVisitor(ExtVisitor):
             fst_branch.scoped_merge(snd_branch)
         self.scoped_merge(fst_branch)
 
-    def __switch(self, ctx: JavaParser.StatementContext):
+    def __switch(self, ctx: Union[
+        JavaParser.StatementContext |
+        JavaParser.SwitchExpressionContext]):
         switch_ctx, switch_var = RecVisitor(), ctx.getChild(1)
         # iterate cases
         for cn in range(3, ctx.getChildCount() - 1):

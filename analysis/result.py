@@ -22,10 +22,10 @@ class Result(dict):
         # init timers
         timing = {}
         super().__setitem__('timing', timing)
-        self.t_parse = Timeable(timing, 'parsing', 1)
-        self.t_analysis = Timeable(timing, 'analysis', 2)
-        self.t_eval = Timeable(timing, 'evaluation', 3)
-        self.timer = Timeable(timing, 'all-time', 4)
+        self.t_parse = Timeable(timing, 'Parsing', 1)
+        self.t_analysis = Timeable(timing, 'Analysis', 2)
+        self.t_eval = Timeable(timing, 'Evaluation', 3)
+        self.timer = Timeable(timing, 'All-time', 4)
 
         if args:
             super().__setitem__('cmd', str(args))
@@ -105,7 +105,9 @@ class Result(dict):
                        key=Timeable.sort())
         times = '\n'.join([str(t) for t in times if str(t)]) \
                 + AnalysisResult.SEP[:-1]
-        parts = ['RESULTS', str(self.analysis_result), times]
+        box = AnalysisResult.yellow('●')
+        un_cov = f'{box} = uncovered statements (if any)'
+        parts = ['RESULTS', un_cov, str(self.analysis_result), times]
         logger.info('\n'.join(parts))
         return self
 
@@ -113,20 +115,16 @@ class Result(dict):
 class AnalysisResult(dict):
     """Base class for a capturing analysis results."""
 
-    LN_LEN, PAD = 52, 8
+    LN_LEN, PAD = 52, 10
     SEP = sep = "\n" + ('-' * LN_LEN) + '\n'
 
     @staticmethod
-    def coloring(text: str) -> str:
-        """Adds color to text.
-
-        Arguments:
-            text: text to color.
-
-        Returns:
-            The original text with added color.
-        """
+    def cyan_blue(text: str) -> str:
         return f'{Colors.OKCYAN}{text}{Colors.ENDC}'
+
+    @staticmethod
+    def yellow(text: str) -> str:
+        return f'{Colors.WARNING}{text}{Colors.ENDC}'
 
     @staticmethod
     def bcolor(text: str) -> str:
@@ -138,7 +136,7 @@ class AnalysisResult(dict):
         Returns:
             The original text with added color.
         """
-        ctext = AnalysisResult.coloring(text)
+        ctext = AnalysisResult.cyan_blue(text)
         return f'{Colors.BOLD}{ctext}{Colors.ENDC}'
 
     def children(self) -> List[str]:
@@ -174,7 +172,7 @@ class MethodResult(AnalysisResult):
 
     def __init__(self, name: str, full_name: str,
                  source: str, flows: list[list[str]],
-                 variables: set[str]):
+                 variables: set[str], skips: List[str] = None):
         super().__init__()
         super().__setitem__('full_name', full_name)
         super().__setitem__('identifiers', list(variables))
@@ -182,6 +180,7 @@ class MethodResult(AnalysisResult):
         super().__setitem__('flows', flows)
         super().__setitem__('sat', None)
         super().__setitem__('model', None)
+        super().__setitem__('skips', skips or [])
         self.name = name
 
     @property
@@ -199,6 +198,10 @@ class MethodResult(AnalysisResult):
     @property
     def source(self) -> str:
         return self.__getitem__('source')
+
+    @property
+    def skips(self) -> List[str]:
+        return self.__getitem__('skips')
 
     @property
     def sat(self) -> str:
@@ -252,17 +255,24 @@ class MethodResult(AnalysisResult):
         lines = [sep1.join(map(fmt, ch)) for ch in chunks]
         return sep2.join(lines) or '-'
 
+    @staticmethod
+    def map_skips(method: str, skips: List[str]) -> Tuple[str, int]:
+        for skip in skips:
+            method = method.replace(skip, MethodResult.yellow(skip))
+        return method
+
     def __str__(self):
+        source_code = self.map_skips(self.source, self.skips)
         name = self.bcolor(self.full_name)
         vars_ = self.join_(self.ids)
         flows = self.join_(self.flows, self.flow_fmt)
         model = self.join_(self.model.split(", ")) if self.sat else '-'
-        has_eval = f' ==> {self.bcolor(self.sat)}' if self.sat else ''
-        return (f'{self.source}\n'
-                f'{"Method":<{self.PAD}}{name}{has_eval}\n'
+        has_eval = f'{self.bcolor(self.sat)} ' if self.sat else ''
+        return (f'{source_code}\n'
+                f'{"Method":<{self.PAD}}{name}\n' +
                 f'{"Vars":<{self.PAD}}{vars_}\n'
                 f'{"Flows":<{self.PAD}}{flows}\n'
-                f'{"Model":<{self.PAD}}{model}')
+                f'{"Eval":<{self.PAD}}{has_eval}{model}')
 
 
 class Timeable(dict):
