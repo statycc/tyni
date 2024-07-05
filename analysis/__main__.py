@@ -9,7 +9,8 @@ from typing import Optional, Type
 from sys import argv
 from os.path import isfile
 
-from . import Result, AbstractAnalyzer, JavaAnalyzer, Evaluate
+from . import Result, AbstractAnalyzer, JavaAnalyzer, JsonLoader
+from . import Evaluate
 from . import Colors, utils
 from . import __version__, __title__ as prog_name
 
@@ -64,6 +65,8 @@ def __choose_analyzer(input_file: str) \
         -> Optional[Type[AbstractAnalyzer]]:
     if JavaAnalyzer.lang_match(input_file):
         return JavaAnalyzer
+    if JsonLoader.lang_match(input_file):
+        return JsonLoader
     return None
 
 
@@ -120,8 +123,7 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         choices=[e.value for e in Steps],
         metavar="X",
         dest='run',
-        help='execution steps to run: '
-             'P=parser only, A=analysis, E=evaluation '
+        help='run steps: P=parser, A=analysis, E=evaluation '
              '(default: E)',
         default='E',
         type=str.upper
