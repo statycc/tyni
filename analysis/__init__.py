@@ -9,8 +9,9 @@ from .utils import Bcolors as Colors
 from .parser.JavaLexer import JavaLexer
 from .parser.JavaParser import JavaParser
 from .parser.JavaParserVisitor import JavaParserVisitor
-from .result import \
-    Result, AnalysisResult, ClassResult, MethodResult, Timeable
+from .result import Result, AnalysisResult, ClassResult, MethodResult
+from .result import Timeable
 from .evaluate import Evaluate
 from .abs import AbstractAnalyzer, BaseVisitor
 from .java import JavaAnalyzer
+from .json import JsonLoader

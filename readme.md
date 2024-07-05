@@ -40,7 +40,7 @@ skips              # List of unhandled statements
 * The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.
 * To inspect all captured data, save the result to a file. 
 
-## Usage
+## Getting Started
 
 
 1. **Install dependencies**
@@ -66,12 +66,30 @@ skips              # List of unhandled statements
    python3 -m analysis programs/IFCprog1/Program.java
    ```
 
-3. **For help**, and for a full list of available arguments, run 
+3. **For help**, and for a full list of available arguments, run
 
    ```
    python3 -m analysis
    ```
 
+### Advanced usage
+
+1. **Analyze and evaluate separately.**
+
+   It is possible to run analysis and evaluation separately.
+   This allows to evaluate the same program against different security policies, without repeating the prior steps.
+   
+   First, parse and analyze a program, and save the result to a file. 
+
+   ```
+   python3 -m analysis programs/IFCprog1/Program.java --run A --out result.json
+   ```
+   
+   Then, give the prior result as input to the analyzer.
+
+   ```
+   python3 -m analysis result.json 
+   ```
 
 ## Development
 

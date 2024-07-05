@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import json
 import logging
 import os
 import time
 from typing import Optional, List, Tuple
 
+import json
 from . import Colors, utils
 
 logger = logging.getLogger(__name__)
@@ -18,17 +18,15 @@ class Result(dict):
         super().__init__()
         self.infile = in_
         self.outfile = out_ or (self.default_out(in_) if save else None)
+        super().__setitem__('cmd', str(args))
 
         # init timers
-        timing = {}
-        super().__setitem__('timing', timing)
-        self.t_parse = Timeable(timing, 'Parsing', 1)
-        self.t_analysis = Timeable(timing, 'Analysis', 2)
-        self.t_eval = Timeable(timing, 'Evaluation', 3)
-        self.timer = Timeable(timing, 'All-time', 4)
-
-        if args:
-            super().__setitem__('cmd', str(args))
+        self.timing = {}
+        self.t_parse = Timeable(self.timing, 'Parsing')
+        self.t_analysis = Timeable(self.timing, 'Analysis')
+        self.t_eval = Timeable(self.timing, 'Evaluation')
+        self.timer = Timeable(self.timing, 'All-time')
+        super().__setitem__('timing', self.timing)
 
     @property
     def analyzer(self) -> str:
@@ -76,6 +74,16 @@ class Result(dict):
             json.dump(self, of, indent=4)
         logger.info(f'Wrote to: {self.outfile}')
         return self
+
+    def reconstruct(self, json_: dict):
+        self.update(json_)
+        cls = AnalysisResult()
+        for k, v in (json_['analysis_result'].items()):
+            methods = [(m, MethodResult.init(data))
+                       for m, data in v.items()]
+            cls[k] = ClassResult(k, dict(methods))
+        self.analysis_result = cls
+        super().__setitem__('reloaded', True)
 
     @staticmethod
     def default_out(input_file, out_dir='out', path_depth=3) -> str:
@@ -170,18 +178,26 @@ class MethodResult(AnalysisResult):
 
     FLW_SEP = "🌢"
 
-    def __init__(self, name: str, full_name: str,
-                 source: str, flows: list[list[str]],
-                 variables: set[str], skips: List[str] = None):
+    def __init__(self,
+                 full_name: str,
+                 source: str,
+                 flows: list[list[str]],
+                 identifiers: set[str],
+                 skips: List[str] = None):
         super().__init__()
         super().__setitem__('full_name', full_name)
-        super().__setitem__('identifiers', list(variables))
         super().__setitem__('source', source)
         super().__setitem__('flows', flows)
+        super().__setitem__('identifiers', list(identifiers or {}))
+        super().__setitem__('skips', skips or [])
         super().__setitem__('sat', None)
         super().__setitem__('model', None)
-        super().__setitem__('skips', skips or [])
-        self.name = name
+
+    @staticmethod
+    def init(data):
+        empty = MethodResult(*((None,) * 5))
+        empty.update(data)
+        return empty
 
     @property
     def full_name(self) -> str:
@@ -277,23 +293,28 @@ class MethodResult(AnalysisResult):
 
 class Timeable(dict):
 
-    def __init__(self, prt: dict, name: str, order=0):
+    def __init__(self, prt: dict, name: str):
         super().__init__()
         prt.__setitem__(name, self)
+        self.order = len(prt.keys())
         self.name = name
-        self.order = order
 
     def start(self):
         super().__setitem__('start', time.time_ns())
+        return self
 
     def stop(self):
         end, start = time.time_ns(), super().__getitem__('start')
         super().__setitem__('end', end)
         super().__setitem__('ms', Timeable.millis(start, end))
         super().__setitem__('sec', Timeable.sec(start, end))
+        return self
 
     def __bool__(self):
         return True
+
+    def reload(self, data):
+        self.update(data)
 
     @staticmethod
     def sort():

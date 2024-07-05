@@ -10,7 +10,7 @@ from typing import Optional, Dict, List, Tuple
 from antlr4 import FileStream, CommonTokenStream
 
 from . import AbstractAnalyzer, BaseVisitor
-from . import AnalysisResult, ClassResult, MethodResult
+from . import AnalysisResult, ClassResult, MethodResult, Timeable
 from . import JavaLexer, JavaParser, JavaParserVisitor
 
 logger = logging.getLogger(__name__)
@@ -40,13 +40,12 @@ class JavaAnalyzer(AbstractAnalyzer):
     def parse(self, t: Optional[Timeable] = None) -> JavaAnalyzer:
         """Attempt to parse the input file.
 
-        This method terminates running process if parse fails.
-
         Arguments:
             t: timing utility
 
         Raises:
-            AssertionError: if input file is not analyzable.
+            AssertionError: if input file is not analyzable;
+              terminates running process.
 
         Returns:
             The analyzer.
@@ -150,7 +149,7 @@ class ClassVisitor(ExtVisitor):
         prog = RecVisitor().visit(ctx.methodBody())
         mat = self.mat_format(prog.matrix)
         self.record(self, name, MethodResult(
-            name, self.hierarchy(name), self.og_text(ctx),
+            self.hierarchy(name), self.og_text(ctx),
             mat, prog.vars, prog.skips))
 
 
