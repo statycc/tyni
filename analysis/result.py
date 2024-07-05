@@ -37,6 +37,14 @@ class Result(dict):
         super().__setitem__('analyzer', analyzer)
 
     @property
+    def solver(self) -> str:
+        return self.__getitem__('solver')
+
+    @solver.setter
+    def solver(self, solver):
+        super().__setitem__('solver', solver)
+
+    @property
     def analysis_result(self) -> ClassResult:
         return super().__getitem__('analysis_result')
 
@@ -76,7 +84,9 @@ class Result(dict):
         return self
 
     def reconstruct(self, json_: dict):
+        out = self.outfile
         self.update(json_)
+        self.outfile = out
         cls = AnalysisResult()
         for k, v in (json_['analysis_result'].items()):
             methods = [(m, MethodResult.init(data))
@@ -192,6 +202,8 @@ class MethodResult(AnalysisResult):
         super().__setitem__('skips', skips or [])
         super().__setitem__('sat', None)
         super().__setitem__('model', None)
+        super().__setitem__('smtlib', None)
+        super().__setitem__('solver', None)
 
     @staticmethod
     def init(data):
@@ -234,6 +246,14 @@ class MethodResult(AnalysisResult):
     @model.setter
     def model(self, model):
         super().__setitem__('model', model)
+
+    @property
+    def smtlib(self) -> str:
+        return self.__getitem__('smtlib')
+
+    @smtlib.setter
+    def smtlib(self, smt_lib):
+        super().__setitem__('smtlib', smt_lib)
 
     @staticmethod
     def flow_fmt(tpl):

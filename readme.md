@@ -5,11 +5,9 @@ A static analyzer implementing our information flow calculus (work in progress).
 ## How it works
 
 1. User specifies an input file.
-2. The input is parsed into a parse-tree.
-3. Security-flow matrix data is captured from the parse tree.
-4. The matrix data is evaluated against security levels using SMT solver. 
-
-Same visually:
+2. Parse the input to obtain a parse-tree.
+3. Capture Security-flow matrix data from the parse tree.
+4. Evaluate the matrix data against security levels using an SMT solver.
 
 ```
 [input].java                         ┐
@@ -38,6 +36,7 @@ skips              # List of unhandled statements
 ```
 
 * The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.
+* 
 * To inspect all captured data, save the result to a file. 
 
 ## Getting Started
@@ -108,7 +107,8 @@ skips              # List of unhandled statements
 * Everything done here should be doable in compiler IR.
   * Parse tree has more information than necessary; the analysis could do with less.
   * Current design makes the analyzer light and isolated for simplicity.
-  * No reason so far why it could not take place inside a compiler.   
+  * No reason so far why it could not take place inside a compiler.
+
 
 **Repository organization**
 

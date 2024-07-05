@@ -2,7 +2,8 @@
 import logging
 from typing import Optional, Dict
 
-from z3 import Solver, Ints
+# noinspection PyPackageRequirements
+from z3 import Solver, Ints, get_full_version
 
 from . import Result, AnalysisResult, MethodResult, Timeable
 
@@ -13,6 +14,10 @@ class Evaluate:
 
     def __init__(self, result: Result):
         self.result = result
+
+    @staticmethod
+    def info():
+        return f'Z3 {get_full_version()}'
 
     @property
     def ar(self) -> AnalysisResult:
@@ -53,6 +58,8 @@ class Evaluate:
         for v_name, level in levels.items():
             vInt = s_vars[vrs.index(v_name)]
             solver.add(vInt == level)
+
+        method.smtlib = solver.sexpr()
 
         # check sat/unsat
         sat_sol = method.sat = str(solver.check())

@@ -45,6 +45,7 @@ def main():
         logger.fatal('No supported analyzer')
         sys.exit(1)
     result.analyzer = MyAnalyzer.__name__
+    result.solver = Evaluate.info()
     logger.debug(f'Using {result.analyzer}')
 
     result.timer.start()
