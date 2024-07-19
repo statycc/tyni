@@ -302,7 +302,7 @@ class MethodResult(AnalysisResult):
         name = self.bcolor(self.full_name)
         vars_ = self.join_(self.ids)
         flows = self.join_(self.flows, self.flow_fmt)
-        model = self.join_(self.model.split(", ")) if self.sat else '-'
+        model = self.join_(self.model.split(", ")) if self.model else '-'
         has_eval = f'{self.bcolor(self.sat)} ' if self.sat else ''
         return (f'{source_code}\n'
                 f'{"Method":<{self.PAD}}{name}\n' +

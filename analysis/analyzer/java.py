@@ -5,7 +5,7 @@ import operator
 import sys
 from functools import reduce
 from itertools import product
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Union, List, Tuple
 
 from antlr4 import FileStream, CommonTokenStream
 
@@ -32,8 +32,8 @@ class JavaAnalyzer(AbstractAnalyzer):
     def lang_match(input_file: str) -> bool:
         """Analyzes any file with .java extension.
 
-        This is optimistic, since the grammar of the parser
-        is Java-version specific.
+        This is optimistic, since the grammar recognized by
+        the parser is Java-version specific.
         """
         return input_file.endswith('.java')
 
@@ -124,7 +124,7 @@ class ClassVisitor(ExtVisitor):
 
     def __init__(self, parent: ClassVisitor = None):
         self.parent: ClassVisitor = parent
-        self.result: Dict[AnalysisResult] = AnalysisResult()
+        self.result: AnalysisResult = AnalysisResult()
         self.name: str = ''
 
     def hierarchy(self, name):
@@ -153,18 +153,18 @@ class ClassVisitor(ExtVisitor):
         body = ctx.getChild(ctx.getChildCount() - 1)
         logger.debug(f'class: {self.name}')
         result = ClassVisitor(parent=self).visit(body).result
-        cls = ClassResult(self.name, result)
-        self.record(self.root, self.name, cls)
+        self.record(self.root, self.name,
+                    ClassResult(self.name, result))
 
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext):
         name = ctx.identifier().getText()
         logger.debug(f'method: {name}')
         prog = RecVisitor().visit(ctx.methodBody())
-        mat = self.mat_format(prog.matrix)
         self.record(self, name, MethodResult(
             self.hierarchy(name), self.og_text(ctx),
-            mat, prog.vars, prog.skips))
+            self.mat_format(prog.matrix),
+            prog.vars, prog.skips))
 
 
 class RecVisitor(ExtVisitor):
@@ -366,7 +366,10 @@ class RecVisitor(ExtVisitor):
         super().visitVariableDeclarator(ctx)
 
     def visitStatement(self, ctx: JavaParser.StatementContext):
-        """Statement handlers cf. grammars/JavaParser.g4#L508"""
+        """
+        Statement handlers matching grammar.
+        cf. grammars/JavaParser.g4#L508--528
+        """
         if ctx.blockLabel:
             return super().visitStatement(ctx)
         elif ctx.ASSERT():
@@ -401,11 +404,12 @@ class RecVisitor(ExtVisitor):
             return super().visitStatement(ctx)
         elif ctx.switchExpression():
             return super().visitStatement(ctx)
-        # else: ctx.identifierLabel
-        return super().visitStatement(ctx)
+        elif ctx.identifierLabel:
+            return super().visitStatement(ctx)
+        assert False  # should not occur
 
     def visitExpression(self, ctx: JavaParser.ExpressionContext):
-        """Expressions cf. grammars/JavaParser.g4#L599"""
+        """Expressions cf. grammars/JavaParser.g4#L599--660"""
         if (cc := ctx.getChildCount()) == 3:
             lc, o, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             op = o.getText()
@@ -486,7 +490,7 @@ class RecVisitor(ExtVisitor):
             exp: JavaParser.ExpressionContext,
             body: Optional[JavaParser.StatementContext] = None,
             visited: RecVisitor = None
-    ) -> RecordVisitor:
+    ) -> RecVisitor:
         """Analyze body stmt and apply correction."""
         e_vars = RecVisitor.occurs(exp)
         stmt = visited or RecVisitor().visit(body)
@@ -503,9 +507,9 @@ class RecVisitor(ExtVisitor):
             fst_branch.scoped_merge(snd_branch)
         self.scoped_merge(fst_branch)
 
-    def __switch(self, ctx: Union[
-        JavaParser.StatementContext |
-        JavaParser.SwitchExpressionContext]):
+    def __switch(
+            self, ctx: Union[JavaParser.StatementContext |
+                             JavaParser.SwitchExpressionContext]):
         switch_ctx, switch_var = RecVisitor(), ctx.getChild(1)
         # iterate cases
         for cn in range(3, ctx.getChildCount() - 1):
