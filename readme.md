@@ -62,7 +62,7 @@ skips              # List of unhandled statements
    For example
 
    ```
-   python3 -m analysis programs/IFCprog1/Program.java
+   python3 -m analysis programs/ifcprog1/Program.java
    ```
 
 3. **For help**, and for a full list of available arguments, run

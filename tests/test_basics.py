@@ -3,7 +3,7 @@ import os
 
 from pytest import raises
 
-from analysis import BaseVisitor
+from analysis.analyzer import BaseVisitor
 from analysis import Result
 
 

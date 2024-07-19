@@ -4,14 +4,14 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
-from . import Result, Timeable, AnalysisResult
+from analysis import Result, Timeable, AnalysisResult, Colors
 
 logger = logging.getLogger(__name__)
 
 
 class AbstractAnalyzer(ABC):
     def __init__(self, result: Result):
-        """Base class for an analyzer.
+        """A base class for an analyzer.
 
         Arguments:
             result: Analysis results collector.
@@ -82,8 +82,9 @@ class BaseVisitor(ABC):
             desc: optional description.
         """
         text = BaseVisitor.og_text(ctx)
+        ctext = Colors.WARNING + text + Colors.ENDC
         desc_ = f" {desc}" if desc else ""
-        logger.warning(f'unhandled{desc_} {text}')
+        logger.warning(f'unhandled{desc_} {ctext}')
 
     @staticmethod
     def og_text(ctx) -> str:

@@ -5,11 +5,11 @@ import logging
 import sys
 from argparse import ArgumentParser, Namespace
 from enum import Enum
-from typing import Optional, Type
 from sys import argv
 from os.path import isfile
 
-from . import Result, AbstractAnalyzer, JavaAnalyzer, JsonLoader
+from . import Result
+from .analyzer import choose_analyzer
 from . import Evaluate
 from . import Colors, utils
 from . import __version__, __title__ as prog_name
@@ -40,7 +40,7 @@ def main():
         sys.exit(1)
 
     # noinspection PyPep8Naming
-    MyAnalyzer = __choose_analyzer(args.input)
+    MyAnalyzer = choose_analyzer(args.input)
     if MyAnalyzer is None:
         logger.fatal('No supported analyzer')
         sys.exit(1)
@@ -60,15 +60,6 @@ def main():
         Evaluate(result).solve_all(result.t_eval)
     result.timer.stop()
     result.to_pretty().save()
-
-
-def __choose_analyzer(input_file: str) \
-        -> Optional[Type[AbstractAnalyzer]]:
-    if JavaAnalyzer.lang_match(input_file):
-        return JavaAnalyzer
-    if JsonLoader.lang_match(input_file):
-        return JsonLoader
-    return None
 
 
 class __RemoveColorFilter(logging.Filter):

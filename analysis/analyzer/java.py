@@ -10,8 +10,8 @@ from typing import Optional, Dict, List, Tuple
 from antlr4 import FileStream, CommonTokenStream
 
 from . import AbstractAnalyzer, BaseVisitor
-from . import AnalysisResult, ClassResult, MethodResult, Timeable
-from . import JavaLexer, JavaParser, JavaParserVisitor
+from analysis import AnalysisResult, ClassResult, MethodResult, Timeable
+from analysis.parser import JavaLexer, JavaParser, JavaParserVisitor
 
 logger = logging.getLogger(__name__)
 

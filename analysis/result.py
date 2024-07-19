@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
 from typing import Optional, List, Tuple
 
-import json
 from . import Colors, utils
 
 logger = logging.getLogger(__name__)
@@ -292,7 +292,7 @@ class MethodResult(AnalysisResult):
         return sep2.join(lines) or '-'
 
     @staticmethod
-    def map_skips(method: str, skips: List[str]) -> Tuple[str, int]:
+    def map_skips(method: str, skips: List[str]) -> str:
         for skip in skips:
             method = method.replace(skip, MethodResult.yellow(skip))
         return method
@@ -308,7 +308,7 @@ class MethodResult(AnalysisResult):
                 f'{"Method":<{self.PAD}}{name}\n' +
                 f'{"Vars":<{self.PAD}}{vars_}\n'
                 f'{"Flows":<{self.PAD}}{flows}\n'
-                f'{"Eval":<{self.PAD}}{has_eval}{model}')
+                f'{"Eval":<{self.PAD}}{has_eval}\n{" " * self.PAD}{model}')
 
 
 class Timeable(dict):

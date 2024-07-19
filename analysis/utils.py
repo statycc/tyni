@@ -14,7 +14,8 @@ def ensure_path(fn: str) -> None:
 
 
 def attr_of(obj: Any, type_: Any):
-    """Get attributes of object, that match type.
+    """Get attributes of object that match type;
+    e.g. get all str attributes of an object.
 
     Arguments:
         obj: the object to inspect
@@ -29,7 +30,8 @@ def attr_of(obj: Any, type_: Any):
 
 # noinspection PyClassHasNoInit,PyPep8Naming
 class Bcolors:
-    """From https://stackoverflow.com/a/287944"""
+    """Simple terminal coloring.
+    credit: https://stackoverflow.com/a/287944"""
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKCYAN = '\033[96m'
@@ -42,13 +44,16 @@ class Bcolors:
 
     @staticmethod
     def all_colors():
-        """All colors <-> uppercase str attributes"""
+        """Get a list of all available colors.
+
+        All colors <-> uppercase str class attributes
+        """
         return [getattr(Bcolors, x) for x in
                 attr_of(Bcolors, str) if x.isupper()]
 
     @staticmethod
     def un_color(s: str):
-        """removes all color codes from text"""
+        """Remove all color codes from text"""
         for c in Bcolors.all_colors():
             s = s.replace(c, '')
         return s

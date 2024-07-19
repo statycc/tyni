@@ -1,4 +1,5 @@
-from analysis import JavaAnalyzer, Result
+from analysis import Result
+from analysis.analyzer import JavaAnalyzer
 
 
 def helper(prog, cls_name, method):

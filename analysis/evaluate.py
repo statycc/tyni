@@ -62,7 +62,8 @@ class Evaluate:
         method.smtlib = solver.sexpr()
 
         # check sat/unsat
-        sat_sol = method.sat = str(solver.check())
-        if sat_sol == 'sat':
-            method.model = str(solver.model())[1:-1] \
-                .replace(' = ', '=').replace('\n', '')
+        method.sat = str(solver.check())
+        if method.sat == 'sat':
+            method.model = (str(solver.model())[1:-1]
+                            .replace(' = ', '=')
+                            .replace('\n', ''))

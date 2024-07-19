@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 
-import json
-from . import AbstractAnalyzer, Timeable
+from . import AbstractAnalyzer
+from analysis import Timeable
 
 logger = logging.getLogger(__name__)
 
 
 class JsonLoader(AbstractAnalyzer):
-    """Reloads an analysis result from a JSON file."""
+    """Reloads a previous analysis result from a JSON file."""
 
     @staticmethod
     def lang_match(input_file: str) -> bool:
