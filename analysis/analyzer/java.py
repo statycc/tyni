@@ -101,8 +101,22 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
     @staticmethod
     def is_array_exp(ctx: JavaParser.compilationUnit):
         return ctx.getChildCount() > 2 and \
-               ctx.getChild(1).getText() == "[" and \
-               ExtVisitor.last_child(ctx).getText() == "]"
+            ctx.getChild(1).getText() == "[" and \
+            ExtVisitor.last_child(ctx).getText() == "]"
+
+    @staticmethod
+    def is_array_init(ctx: JavaParser.compilationUnit):
+        # print(ctx.getChild(1).getChildCount(),
+        #       ctx.getChild(1).getChild(0).getText(),
+        #       ctx.getChild(1).getChild(1).getText(),
+        #       ctx.getChild(1).getChild(2).getText()
+        #       )
+        # either [exp?][exp?][exp?]...  or [][]...{ init... } check
+        return ExtVisitor.is_array_exp(ctx) or \
+            ctx.getChildCount() == 2 and \
+            ctx.getChild(0).getChildCount() == 1 and \
+            ctx.getChild(1).getChild(0).getText() == "[" and \
+            ctx.getChild(1).getChild(1).getText() == "]"
 
 
 class ClassVisitor(ExtVisitor):
@@ -276,8 +290,7 @@ class RecVisitor(ExtVisitor):
             c1t, c2t = [x.getText() for x in (c1, c2)]
             # skip object inits with identifiers
             if c1t == "new":
-                self.skipped(ctx, 'new')
-                return set()
+                return self.rvars(c2)
             u_ops = '++,--,!,~,+,-'.split(',')
             if c1t in u_ops or c2t in u_ops:
                 id_node = c1 if c1t not in u_ops else c2
@@ -287,6 +300,11 @@ class RecVisitor(ExtVisitor):
                     c2.getChild(2).getText() == ')'):
                 self.skipped(ctx, 'vars:')
                 return set()
+            if self.is_array_init(ctx):
+                # arrayInitializer
+                self.skipped(ctx, f'arr-2 {ctx.getText()}')
+                return default_handler()
+
             # something else
             self.skipped(ctx, 'rvars-2')
             return default_handler()
