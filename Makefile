@@ -19,7 +19,7 @@ POUT=./src/parser
 
 ### JAVA FILES
 PNAME = Program
-P_DIR = examples
+P_DIR = programs
 O_DIR = build
 B_DIR = bytecode
 PROGS = $(wildcard $(P_DIR)/*/*.java) $(wildcard benchmarks/JavaSourceCode/**/**/*.java)
