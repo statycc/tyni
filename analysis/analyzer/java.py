@@ -298,7 +298,7 @@ class RecVisitor(ExtVisitor):
             if (cn >= 3 and
                     c2.getChild(0).getText() == '(' and
                     c2.getChild(cn - 1).getText() == ')'):
-                self.skipped(ctx, 'call:')
+                self.skipped(ctx, 'call/block:')
                 return set()
             # array exp/initialization
             if (cn >= 3 and c2.getChild(0).getText() == '[' and
