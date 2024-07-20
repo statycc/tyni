@@ -285,6 +285,7 @@ class RecVisitor(ExtVisitor):
         elif cc == 2:  # unary, new, method calls
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
+            cn = c2.getChildCount()
             if c1t == "new":  # new object init
                 return self.rvars(c2)
             # unary op
@@ -292,21 +293,24 @@ class RecVisitor(ExtVisitor):
             if c1t in u_ops or c2t in u_ops:
                 id_node = c1 if c1t not in u_ops else c2
                 return self.rvars(id_node)
-            if (c2.getChildCount() == 3 and
+            if cn == 1 and c2t == '()':
+                return self.rvars(c1)
+            if (cn >= 3 and
                     c2.getChild(0).getText() == '(' and
-                    c2.getChild(2).getText() == ')'):
-                self.skipped(ctx, 'vars:')
+                    c2.getChild(cn - 1).getText() == ')'):
+                self.skipped(ctx, 'call:')
                 return set()
             # array exp/initialization
-            if ((cn := c2.getChildCount()) >= 3 and
-                    c2.getChild(0).getText() == '[' and
+            if (cn >= 3 and c2.getChild(0).getText() == '[' and
                     (c2.getChild(cn - 1).getText() == ']' or
                      c2.getChild(cn - 2).getText() == ']')):
-                res = self.rvars(c1) | set(reduce(
-                    set.union, map(self.rvars, c2.children)))
-                return res
+                # array type
+                # perhaps include self.rvars(c1)
+                return set(reduce(set.union, map(
+                    self.rvars, c2.children)))
+
             # something else
-            self.skipped(ctx, f'rvars-2 {c2.getChildCount()}')
+            self.skipped(ctx, 'rvars-2')
             return default_handler()
 
         elif self.is_array_init_exp(ctx):
@@ -335,8 +339,8 @@ class RecVisitor(ExtVisitor):
                 return self.rvars(c0) | self.rvars(c2) | self.rvars(c4)
 
         if ctx.getChild(0).getText() == "switch":  # switch expression
-            # TODO: can there be new, out vars?
-            #   Yes, in a switch expression
+            # TODO: can there be new out vars?
+            #   Yes, e.g. a switch expression
             vst = RecVisitor().visit(ctx)
             logger.debug(f'R/in:  {", ".join(vst.vars)}')
             return vst.vars

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, Iterable
 
 from analysis import Result, Timeable, AnalysisResult, Colors
 
@@ -102,7 +102,7 @@ class BaseVisitor(ABC):
         return input_stream.getText(start, stop)
 
     @staticmethod
-    def uniq_name(init: str, known: List[str]) -> str:
+    def uniq_name(init: str, known: Iterable[str]) -> str:
         """Find a unique replacement name for a variable.
 
         By "reverse pigeon-hole", this method always finds
