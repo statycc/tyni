@@ -101,22 +101,19 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
     @staticmethod
     def is_array_exp(ctx: JavaParser.compilationUnit):
         return ctx.getChildCount() > 2 and \
-            ctx.getChild(1).getText() == "[" and \
-            ExtVisitor.last_child(ctx).getText() == "]"
+               ctx.getChild(1).getText() == "[" and \
+               ExtVisitor.last_child(ctx).getText() == "]"
 
     @staticmethod
-    def is_array_init(ctx: JavaParser.compilationUnit):
-        # print(ctx.getChild(1).getChildCount(),
-        #       ctx.getChild(1).getChild(0).getText(),
-        #       ctx.getChild(1).getChild(1).getText(),
-        #       ctx.getChild(1).getChild(2).getText()
-        #       )
-        # either [exp?][exp?][exp?]...  or [][]...{ init... } check
-        return ExtVisitor.is_array_exp(ctx) or \
-            ctx.getChildCount() == 2 and \
-            ctx.getChild(0).getChildCount() == 1 and \
-            ctx.getChild(1).getChild(0).getText() == "[" and \
-            ctx.getChild(1).getChild(1).getText() == "]"
+    def is_array_init_exp(ctx: JavaParser.compilationUnit):
+        """arrayInitialize JavaParser.g4 L262--264"""
+        if (cc := ctx.getChildCount()) % 2 == 1:
+            ev = [n for n in range(0, cc, 2)]
+            return (ctx.getChild(ev[0]).getText() == '{' and
+                    ctx.getChild(ev[-1]).getText() == '}' and
+                    all([ctx.getChild(x).getText() == ','
+                         for x in ev[1:-1]]))
+        return False
 
 
 class ClassVisitor(ExtVisitor):
@@ -288,9 +285,9 @@ class RecVisitor(ExtVisitor):
         elif cc == 2:  # unary, new, method calls
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
-            # skip object inits with identifiers
-            if c1t == "new":
+            if c1t == "new":  # new object init
                 return self.rvars(c2)
+            # unary op
             u_ops = '++,--,!,~,+,-'.split(',')
             if c1t in u_ops or c2t in u_ops:
                 id_node = c1 if c1t not in u_ops else c2
@@ -300,14 +297,21 @@ class RecVisitor(ExtVisitor):
                     c2.getChild(2).getText() == ')'):
                 self.skipped(ctx, 'vars:')
                 return set()
-            if self.is_array_init(ctx):
-                # arrayInitializer
-                self.skipped(ctx, f'arr-2 {ctx.getText()}')
-                return default_handler()
-
+            # array exp/initialization
+            if ((cn := c2.getChildCount()) >= 3 and
+                    c2.getChild(0).getText() == '[' and
+                    (c2.getChild(cn - 1).getText() == ']' or
+                     c2.getChild(cn - 2).getText() == ']')):
+                res = self.rvars(c1) | set(reduce(
+                    set.union, map(self.rvars, c2.children)))
+                return res
             # something else
-            self.skipped(ctx, 'rvars-2')
+            self.skipped(ctx, f'rvars-2 {c2.getChildCount()}')
             return default_handler()
+
+        elif self.is_array_init_exp(ctx):
+            chd = map(ctx.getChild, range(1, cc, 2))
+            return set(reduce(set.union, map(self.rvars, chd)))
 
         elif cc == 3:  # binary ops
             lc, op, rc = [ctx.getChild(n) for n in [0, 1, 2]]
@@ -324,8 +328,9 @@ class RecVisitor(ExtVisitor):
             self.skipped(ctx, 'rvars-3')
             return default_handler()
 
-        elif cc == 5:  # ternary
+        elif cc == 5:
             c0, c1, c2, c3, c4 = [ctx.getChild(n) for n in range(5)]
+            # ternary operation
             if c1.getText() == "?" and c3.getText() == ":":
                 return self.rvars(c0) | self.rvars(c2) | self.rvars(c4)
 
