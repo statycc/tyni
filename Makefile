@@ -19,10 +19,10 @@ POUT=./src/parser
 
 ### JAVA FILES
 PNAME = Program
-P_DIR = programs
+P_DIR = examples
 O_DIR = build
 B_DIR = bytecode
-PROGS = $(wildcard $(P_DIR)/*/*.java) $(wildcard $(P_DIR)/_ifspec/**/**/*.java)
+PROGS = $(wildcard $(P_DIR)/*/*.java) $(wildcard benchmarks/JavaSourceCode/**/**/*.java)
 
 ### ANALYSIS
 ANALYZER = analysis
@@ -57,7 +57,7 @@ lint:
 	flake8 $(ANALYZER) --count --show-source --statistics --exclude "$(ANALYZER)/parser"
 
 cloc:
-	cloc . --exclude-dir=venv,.idea,parser,out,build,.github,.pytest_cache
+	cloc . --exclude-dir=venv,.idea,parser,out,build,.github,.pytest_cache,benchmarks
 
 clean:
 	@rm -rf $(O_DIR) $(B_DIR) $(DEFAULT_OUT)
