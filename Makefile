@@ -22,7 +22,7 @@ PNAME = Program
 P_DIR = programs
 O_DIR = build
 B_DIR = bytecode
-PROGS = $(patsubst %/,%, $(patsubst $(P_DIR)/%,%, $(dir $(wildcard $(P_DIR)/*/$(PNAME).java))))
+PROGS = $(wildcard $(P_DIR)/*/*.java) $(wildcard $(P_DIR)/_ifspec/**/**/*.java)
 
 ### ANALYSIS
 ANALYZER = analysis
@@ -34,19 +34,18 @@ dev:
 	@pip3 install -q -r requirements-dev.txt
 
 build: $(P_DIR)
-	@$(foreach p, $(PROGS), javac -d ./$(O_DIR)/ $(P_DIR)/$(p)/*.java ; )
+	@$(foreach p, $(PROGZ), javac -d ./$(O_DIR)/ $(P_DIR)/$(p)/*.java ; )
 
 bytecode: $(O_DIR)
 	@mkdir -p $(B_DIR)
-	@$(foreach p, $(PROGS), $(foreach c, $(notdir $(basename $(wildcard $(O_DIR)/$(p)/*.class))), \
+	@$(foreach p, $(PROGZ), $(foreach c, $(notdir $(basename $(wildcard $(O_DIR)/$(p)/*.class))), \
 	javap -cp $(O_DIR) -c $(p).$(c) >> $(B_DIR)/$(p).$(c).txt ; ))
 
 parser: $(GRAMMAR)
 	rm -rf $(POUT) && antlr4 -v $(ANTLR_V) $(GRAMMAR) -Dlanguage=$(TARGET) -visitor -no-listener -Xexact-output-dir -o $(OUT)
 
 ptest: $(P_DIR)
-	@$(foreach p, $(PROGS), \
-		echo "PARSE $(p)" && python3 -m $(ANALYZER) $(P_DIR)/$(p)/$(PNAME).java -r P -l 0 ; )
+	@$(foreach p, $(PROGS), echo "PARSE $(p)" && python3 -m $(ANALYZER) $(p) -r p -l 0 ; )
 
 test:
 	pytest --cov=$(ANALYZER) tests --show-capture=no
