@@ -1,11 +1,12 @@
 package wallpaper;
 
 /**
- * Huang et al (2015) "Scalable and Precise Taint Analysis for Android".
+ * Huang et al. (2015) "Scalable and Precise Taint Analysis for Android".
  * WallpapersMain leaks the device identifier
  * (the source) to a content server (the sink) in a URL.
  */
-public class WallpapersMain extends Activity {
+@SuppressWarnings("ClassEscapesDefinedScope")
+public class WallpaperMain extends Activity {
     private String BASE_URL, deviceId;
     private int pageNum, catId;
     private DisplayMetrics metrics;
@@ -20,7 +21,7 @@ public class WallpapersMain extends Activity {
     }
 
     private void start() {
-        BASE URL = "getWallpapers_Android2/";
+        BASE_URL = "getWallpapers_Android2/";
         TelephonyManager mgr = (TelephonyManager) this.getSystemService("phone");
         deviceId = mgr.getDeviceId(); // source
     }
@@ -32,3 +33,4 @@ public class WallpapersMain extends Activity {
         browser1.loadUrl(str); // sink
     }
 }
+

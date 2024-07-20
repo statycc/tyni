@@ -6,10 +6,10 @@ import java.util.Arrays;
 public class Program {
 
     public static void main(String[] args) {
-        int[] x1 = new int[]{1, 2, 3};
+        int[] x1 = {1, 2, 3};
         int[] x2 = new int[]{2, 2, 2};
         int[] y1 = new int[]{1, 6, 4};
-        int[] y2 = new int[]{3, 5, 3};
+        int[] y2 = {1, 1, 1};
         int[][] A = new int[][]{{1, 1, 1}, {2, 2, 2}, {3, 3, 3}};
         int N = x2.length < x1.length ? x2.length : x1.length;
         mvt(N, x1, x2, y1, y2, A);

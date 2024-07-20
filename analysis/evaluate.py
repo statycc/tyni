@@ -63,7 +63,7 @@ class Evaluate:
 
         # check sat/unsat
         method.sat = str(solver.check())
-        if method.sat == 'sat':
+        if method.sat.lower() == 'sat':
             method.model = (str(solver.model())[1:-1]
                             .replace(' = ', '=')
                             .replace('\n', ''))

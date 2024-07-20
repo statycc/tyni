@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, List
+from typing import Optional, Iterable
 
 from analysis import Result, Timeable, AnalysisResult, Colors
 
@@ -13,9 +13,14 @@ class AbstractAnalyzer(ABC):
     def __init__(self, result: Result):
         """A base class for an analyzer.
 
+        This class defines the interface for an analyzer
+        implementation (abstract methods), and common
+        inherited functionality of all analyzers.
+
         Arguments:
-            result: Analysis results collector.
+            result: Initialized results object.
         """
+        assert result
         self._result = result
         self.tree = None
 
@@ -102,7 +107,7 @@ class BaseVisitor(ABC):
         return input_stream.getText(start, stop)
 
     @staticmethod
-    def uniq_name(init: str, known: List[str]) -> str:
+    def uniq_name(init: str, known: Iterable[str]) -> str:
         """Find a unique replacement name for a variable.
 
         By "reverse pigeon-hole", this method always finds
@@ -117,7 +122,7 @@ class BaseVisitor(ABC):
         Returns:
             A new name that is not in the known names.
         """
-        for i in range(2, len(known) + 2 + 1):
+        for i in range(2, len(list(known)) + 2 + 1):
             candidate = f'{init}{BaseVisitor.u_sub(i)}'
             if candidate not in known:
                 return candidate

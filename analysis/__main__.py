@@ -5,14 +5,12 @@ import logging
 import sys
 from argparse import ArgumentParser, Namespace
 from enum import Enum
-from sys import argv
 from os.path import isfile
+from sys import argv
 
-from . import Result
-from .analyzer import choose_analyzer
-from . import Evaluate
-from . import Colors, utils
+from . import Colors, utils, Evaluate, Result
 from . import __version__, __title__ as prog_name
+from .analyzer import choose_analyzer
 
 
 class Steps(Enum):
@@ -126,7 +124,7 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         choices=range(0, 5),
         metavar="[0-4]",
         dest='log_level',
-        help='logging verbosity 0=min...4=max',
+        help='logging verbosity 0=min...4=max (default: 4)',
         default=4,
         type=int
     )
