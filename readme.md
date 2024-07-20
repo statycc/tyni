@@ -16,9 +16,10 @@ A static analyzer implementing our information flow calculus (work in progress).
                                      ┐
 ---> analyze tree                    ├─ ❷ analysis 
 ---> gather matrix data              ┘      
-                                     ┐
----> evaluate matrix data            ├─ ❸ evaluation 
----> get interesting info            ┘  
+                                     
+---> evaluate matrix data            ]─ ❸ evaluation 
+
+out: interesting info              
 ```
 
 ## Interpreting analyzer results
@@ -36,7 +37,7 @@ skips              # List of unhandled statements
 ```
 
 * The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.
-* 
+
 * To inspect all captured data, save the result to a file. 
 
 ## Getting Started
@@ -115,8 +116,9 @@ skips              # List of unhandled statements
 ```
 .
 ├─ analysis/               # analyzer source code
+│  ├─ analyzers/           # analyzers for input languages
 │  ├─ parser/              # generated parser (from grammars)
-│  └─ *                    # analyzer implementation
+│  └─ *                    # implementation
 ├─ grammars/               # input language specifications
 ├─ programs/               # example programs for analysis
 ├─ tests/                  # unit tests
@@ -124,7 +126,7 @@ skips              # List of unhandled statements
 ├─ readme.md               # instructions
 ├─ requirements.txt        # Python dependencies 
 ├─ requirements-dev.txt    # Python development dependencies
-└─ setup.sh                # automation script for dev-env setup  
+└─ setup.sh                # automation dev-env setup script
 ```````
 
 **Commands**
@@ -142,10 +144,9 @@ make help     # lists other available commands
 * Running these commands assumes dev requirements are installed.
   Run `setup.sh` for easy dev-setup.
 
-* The analyzer expects input in high-level input language, i.e., 
-  a `.java` file. It is not necessary to compile the java programs.
-  But bytecode may be interesting, so there are commands to generate 
-  bytecode.
+* The analyzer expects input in high-level input language, i.e., a `.java` file.
+  It is not necessary to compile the java programs.
+  But bytecode may be interesting, so there are commands to generate bytecode.
 
 * It is also not necessary to rebuild the parser; it is already built. 
   But it is easy to rebuild, if necessary, with ANTLR and the Makefile commands.
