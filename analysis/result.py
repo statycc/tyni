@@ -400,5 +400,6 @@ class Timeable(dict):
         return (end - start) / units
 
     def __str__(self) -> str:
-        t = f' {self.t_sec:>10} sec' if self.finished else '-'
-        return f'{self.name:<16}{t}'
+        return (f'{self.name:<16} ' +
+                (f'{self.t_sec:>10} sec' if self.finished
+                 else f'{"-":>14}'))

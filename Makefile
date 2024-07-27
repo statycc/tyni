@@ -51,7 +51,7 @@ test:
 	pytest --cov=$(ANALYZER) tests --show-capture=no
 
 missing:
-	pytest --cov-config=.cov_missing --cov-report term-missing:skip-covered --cov=$(ANALYZER) tests --show-capture=no
+	pytest --cov=$(ANALYZER) tests --show-capture=no --cov-report term-missing:skip-covered
 
 lint:
 	flake8 $(ANALYZER) --count --show-source --statistics --exclude "$(ANALYZER)/parser"

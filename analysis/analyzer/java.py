@@ -21,10 +21,10 @@ class JavaAnalyzer(AbstractAnalyzer):
 
     Example:
 
-    Parses and analyzes program, where program is some .java file.
+    Parses and analyzes a program where program is a .java file.
 
     ```python
-    JavaAnalyzer(program).parse().run()
+    JavaAnalyzer(program).parse().analyze()
     ```
     """
 
@@ -34,6 +34,12 @@ class JavaAnalyzer(AbstractAnalyzer):
 
         This is optimistic, since the grammar recognized by
         the parser is Java-version specific.
+
+        Arguments:
+            input_file: the file to analyze.
+
+        Returns:
+            True is input file is compatible with this analyzer.
         """
         return input_file.endswith('.java')
 
@@ -44,8 +50,11 @@ class JavaAnalyzer(AbstractAnalyzer):
             t: timing utility
 
         Raises:
-            AssertionError: if input file is not analyzable;
-              terminates running process.
+            AssertionError: if input file is not analyzable,
+              because of file-extension mismatch.
+            AssertionError: if input file cannot be parsed by
+              the parser. The feedback here is not informative;
+              so make sure to follow the grammar.
 
         Returns:
             The analyzer.
@@ -58,8 +67,7 @@ class JavaAnalyzer(AbstractAnalyzer):
         stream = CommonTokenStream(lexer)
         parser = JavaParser(stream)
         t.stop() if t else None
-        if parser.getNumberOfSyntaxErrors() > 0:
-            return sys.exit(1)
+        assert parser.getNumberOfSyntaxErrors() == 0
         logger.debug("parsed successfully")
         self.tree = parser.compilationUnit()
         return self
@@ -86,34 +94,55 @@ class JavaAnalyzer(AbstractAnalyzer):
 
 
 class ExtVisitor(BaseVisitor, JavaParserVisitor):
-    """Shared behavior for all Java visitors."""
+    """Shared basic behavior for all Java visitors."""
+
+    # unary operators
+    U_OP = '++,--,!,~,+,-'.split(',')
+    # operators JavaLexer L#155
+    OP = '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%'.split(',')
 
     def visit(self, tree):
         super().visit(tree)
         return self
 
     @staticmethod
-    def last_child(ctx: JavaParser.compilationUnit) \
+    def last(ctx: JavaParser.compilationUnit, n: int = 1) \
             -> Optional[JavaParser.compilationUnit]:
-        n = ctx.getChildCount()
-        return ctx.getChild(n - 1) if n else None
+        """Access the context children indexing from the end.
+
+        Arguments:
+            ctx: parse tree context
+            n: offset index where 1 gets the last child,
+               2 get the second last child, etc.
+
+        Returns:
+            The n-th last child, if children exists, else None.
+        """
+        idx = max(0, (cc := ctx.getChildCount()) - n)
+        return ctx.getChild(idx) if cc else None
 
     @staticmethod
     def is_array_exp(ctx: JavaParser.compilationUnit):
-        return ctx.getChildCount() > 2 and \
-               ctx.getChild(1).getText() == "[" and \
-               ExtVisitor.last_child(ctx).getText() == "]"
+        """Match 'arrName' ('[' expression ']')+ ('[' ']')*
+           grammars/JavaParser.g4 L740."""
+        return (ctx.getChildCount() > 2 and
+                ctx.getChild(1).getText() == "[" and
+                ExtVisitor.last(ctx).getText() == "]")
 
     @staticmethod
-    def is_array_init_exp(ctx: JavaParser.compilationUnit):
-        """arrayInitialize JavaParser.g4 L262--264"""
+    def is_array_init(ctx: JavaParser.compilationUnit):
+        """Match arrayInitialize of form
+          '{' (varInitializer (',' varInitializer)* ','?)? '}'
+           grammars/JavaParser.g4 L262--264."""
         if (cc := ctx.getChildCount()) % 2 == 1:
             ev = [n for n in range(0, cc, 2)]
             return (ctx.getChild(ev[0]).getText() == '{' and
                     ctx.getChild(ev[-1]).getText() == '}' and
                     all([ctx.getChild(x).getText() == ','
                          for x in ev[1:-1]]))
-        return False
+        return (cc == 2 and
+                ExtVisitor.last(ctx, 2).getText() == '{' and
+                ExtVisitor.last(ctx).getText() == '}')
 
 
 class ClassVisitor(ExtVisitor):
@@ -235,9 +264,8 @@ class RecVisitor(ExtVisitor):
         elif cc == 2:  # standalone unary
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
-            u_ops = '++,--,!,~,+,-'.split(',')
-            if c1t in u_ops or c2t in u_ops:
-                id_node = c1 if c1t not in u_ops else c2
+            if c1t in self.U_OP or c2t in self.U_OP:
+                id_node = c1 if c1t not in self.U_OP else c2
                 return self.lvars(id_node)
 
         elif cc >= 4 and RecVisitor.is_array_exp(ctx):  # arrays
@@ -289,9 +317,8 @@ class RecVisitor(ExtVisitor):
             if c1t == "new":  # new object init
                 return self.rvars(c2)
             # unary op
-            u_ops = '++,--,!,~,+,-'.split(',')
-            if c1t in u_ops or c2t in u_ops:
-                id_node = c1 if c1t not in u_ops else c2
+            if c1t in self.U_OP or c2t in self.U_OP:
+                id_node = c1 if c1t not in self.U_OP else c2
                 return self.rvars(id_node)
             if cn == 1 and c2t == '()':
                 return self.rvars(c1)
@@ -311,7 +338,7 @@ class RecVisitor(ExtVisitor):
             self.skipped(ctx, 'rvars-2')
             return default_handler()
 
-        elif self.is_array_init_exp(ctx):
+        elif self.is_array_init(ctx):
             chd = map(ctx.getChild, range(1, cc, 2))
             return set(reduce(set.union, map(self.rvars, chd)))
 
@@ -320,9 +347,7 @@ class RecVisitor(ExtVisitor):
             if (opt := op.getText()) == ".":
                 self.skipped(ctx, 'dot-op')
                 return set()
-            # see JavaLexer L#155
-            elif opt in '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%' \
-                    .split(','):
+            elif opt in self.OP:
                 return self.rvars(lc) | self.rvars(rc)
             # block statement
             elif lc.getText() == '(' and rc.getText() == ')':
@@ -588,7 +613,7 @@ class IdVisitor(ExtVisitor):
 
     def __init__(self):
         # For some operations the order of discovery matters,
-        # so maintain a list, to capture identifier order (L-R).
+        # so maintain a list to capture identifier order (L-R).
         self.flat = []
 
     @property

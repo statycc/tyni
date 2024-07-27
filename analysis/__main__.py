@@ -12,11 +12,8 @@ from . import Colors, utils, Evaluate, Result
 from . import __version__, __title__ as prog_name
 from .analyzer import choose_analyzer
 
-
-class Steps(Enum):
-    PARSE = 'P'
-    ANALYZE = 'A'
-    EVALUATE = 'E'
+Steps = Enum('Steps', [
+    ('PARSE', 'P'), ('ANALYZE', 'A'), ('EVALUATE', 'E')])
 
 
 # noinspection PyUnusedLocal
