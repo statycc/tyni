@@ -6,8 +6,8 @@ A static analyzer implementing our information flow calculus (work in progress).
 
 1. User specifies an input file.
 2. Parse the input to obtain a parse-tree.
-3. Capture Security-flow matrix data from the parse tree.
-4. Evaluate the matrix data against security levels using an SMT solver.
+3. Capture a security-flow matrix from the parse tree.
+4. Evaluate the matrix against security policy & classes using a solver.
 
 ```
 [input].java                         ┐
@@ -24,21 +24,22 @@ out: interesting info
 
 ## Interpreting analyzer results
 
-The analyzer captures data during the execution phases, including input file details, execution arguments, and timing information.
-The data captured during the analysis and evaluation phases includes, for each method:
+The analyzer captures input file details, data flow details, and timing information,
+including for each method:
 
 ```
-method name        # Full name (class.method)
-identifiers        # Names of encountered variables, see note below               
-flows              # Interfering variable pairs (in, out)    
-satisfiability     # SMT-solver outcome, SAT or UNSAT                 
-model              # If SAT, security levels to make the method non-interfering
-skips              # List of unhandled statements           
+name               : Full name, class.method
+variables          : Encountered variables, see note below               
+flows              : Interfering variable pairs (in, out)    
+satisfiability     : Solver outcome SAT/UNSAT                 
+model              : If SAT, security levels to make the method non-interfering
+skips              : Uncovered statements (if any) 
 ```
 
 * The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.
-
 * To inspect all captured data, save the result to a file. 
+
+
 
 ## Getting Started
 

@@ -4,8 +4,8 @@ import json
 import logging
 from typing import Optional
 
-from . import AbstractAnalyzer
 from analysis import Timeable
+from . import AbstractAnalyzer
 
 logger = logging.getLogger(__name__)
 

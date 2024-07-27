@@ -3,13 +3,13 @@ import os
 
 from pytest import raises
 
+from analysis import Result, utils
 from analysis.analyzer import BaseVisitor
-from analysis import Result
 
 
 def test_default_out_varying_path_depth():
     in_ = "~/lib/Aliasing-Insecure/prog/src/Main.java"
-    def_o = lambda d: Result.default_out(in_, 'output', d)
+    def_o = lambda d: utils.gen_filename(in_, 'output', d)
 
     assert def_o(0) == "output/Main.json"
     assert def_o(1) == "output/src_Main.json"
@@ -46,3 +46,19 @@ def test_save(mocker):
     Result('my.c', 'out/my_dir/my.json').save()
     os.makedirs.assert_called_once_with('out/my_dir')
     json.dump.assert_called_once()
+
+
+def test_attr_of():
+    class Dummy:
+        z = 14
+
+        def __init__(self):
+            self.x = 5
+
+        @property
+        def y(self):
+            return "a", 1
+
+    obj = Dummy()
+    assert utils.attr_of(obj, int) == ["x", "z"]
+    assert utils.attr_of(obj, tuple) == ["y"]

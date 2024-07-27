@@ -22,14 +22,13 @@ class Steps(Enum):
 # noinspection PyUnusedLocal
 def main():
     parser = ArgumentParser(prog=prog_name)
-    raw_args = " ".join(argv[1:])
     args = __parse_args(parser)
 
     if not args.input:
         parser.print_help()
         sys.exit(1)
 
-    result = Result(args.input, args.out, args.save, args=raw_args)
+    result = Result(args.input, args.out, args.save, args=argv)
     logger = __logger_setup(
         args.log_level, result.log_fn if args.log else None)
     if not isfile(args.input):
@@ -46,18 +45,18 @@ def main():
     result.solver = Evaluate.info()
     logger.debug(f'Using {result.analyzer}')
 
-    result.timer.start()
+    result.timers.total.start()
     analyzer = MyAnalyzer(result)
-    analyzer.parse(result.t_parse)
+    analyzer.parse(result.timers.parse)
     if args.run == Steps.PARSE.value:
-        result.timer.stop()
+        result.timers.total.stop()
         return result.save()
-    analyzer.analyze(result.t_analysis)
+    analyzer.analyze(result.timers.analysis)
     if args.run != Steps.ANALYZE.value:
         gc.collect()
-        Evaluate(result).solve_all(result.t_eval)
-    result.timer.stop()
-    result.to_pretty().save()
+        Evaluate(result).solve_all(result.timers.eval)
+    result.timers.total.stop()
+    result.save().to_pretty()
 
 
 class __RemoveColorFilter(logging.Filter):

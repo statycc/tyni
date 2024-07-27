@@ -28,6 +28,27 @@ def attr_of(obj: Any, type_: Any):
             isinstance(getattr(obj, x), type_)]
 
 
+def gen_filename(
+        in_file: str, out_dir: str = 'out', depth: int = 3,
+        ext: str = 'json') -> str:
+    """Helper to generate output file name for input file.
+
+    Arguments:
+        in_file: program file path.
+        out_dir: path to output directory [default:output].
+        depth: number of directories to include in the generated
+            filename, counting from end of in_file [default:3].
+        ext: file extension [default: json].
+
+    Returns:
+        The generated file name.
+    """
+    dir_depth = -(depth + 1)  # +1 for the filename
+    file_only = os.path.splitext(in_file)[0]
+    file_name = '_'.join(file_only.split('/')[dir_depth:])
+    return os.path.join(out_dir, f"{file_name}.{ext}")
+
+
 # noinspection PyClassHasNoInit,PyPep8Naming
 class Bcolors:
     """Simple terminal coloring.

@@ -9,9 +9,9 @@ from typing import Optional, Union, List, Tuple
 
 from antlr4 import FileStream, CommonTokenStream
 
-from . import AbstractAnalyzer, BaseVisitor
 from analysis import AnalysisResult, ClassResult, MethodResult, Timeable
 from analysis.parser import JavaLexer, JavaParser, JavaParserVisitor
+from . import AbstractAnalyzer, BaseVisitor
 
 logger = logging.getLogger(__name__)
 

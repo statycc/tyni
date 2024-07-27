@@ -12,29 +12,24 @@ logger = logging.getLogger(__name__)
 
 
 class Result(dict):
+    AR = 'analysis_result'
 
     def __init__(self, in_: str, out_: str = None,
                  save=False, args=None):
         super().__init__()
+        self.cmd = args
         self.infile = in_
-        self.outfile = out_ or (self.default_out(in_) if save else None)
-        super().__setitem__('cmd', str(args))
-
-        # init timers
-        self.timing = {}
-        self.t_parse = Timeable(self.timing, 'Parsing')
-        self.t_analysis = Timeable(self.timing, 'Analysis')
-        self.t_eval = Timeable(self.timing, 'Evaluation')
-        self.timer = Timeable(self.timing, 'All-time')
-        super().__setitem__('timing', self.timing)
+        self.outfile = out_ or (
+            utils.gen_filename(in_) if save else None)
+        self.timers = Timers()
 
     @property
     def analyzer(self) -> str:
-        return super().__getitem__('analyzer')
+        return self.__getitem__('analyzer')
 
     @analyzer.setter
     def analyzer(self, analyzer: str):
-        super().__setitem__('analyzer', analyzer)
+        self.__setitem__('analyzer', analyzer)
 
     @property
     def solver(self) -> str:
@@ -42,31 +37,47 @@ class Result(dict):
 
     @solver.setter
     def solver(self, solver):
-        super().__setitem__('solver', solver)
+        self.__setitem__('solver', solver)
 
     @property
     def analysis_result(self) -> ClassResult:
-        return super().__getitem__('analysis_result')
+        return self.__getitem__(self.AR)
 
     @analysis_result.setter
     def analysis_result(self, result: ClassResult):
-        super().__setitem__('analysis_result', result)
+        self.__setitem__(self.AR, result)
 
     @property
     def infile(self) -> str:
-        return super().__getitem__('input_file')
+        return self.__getitem__('input_file')
 
     @infile.setter
     def infile(self, in_: str):
-        super().__setitem__('input_file', in_)
+        self.__setitem__('input_file', in_)
 
     @property
     def outfile(self) -> Optional[str]:
-        return super().__getitem__('out_file')
+        return self.__getitem__('out_file')
 
     @outfile.setter
     def outfile(self, in_: str):
-        super().__setitem__('out_file', in_)
+        self.__setitem__('out_file', in_)
+
+    @property
+    def cmd(self) -> str:
+        return self.__getitem__('cmd')
+
+    @cmd.setter
+    def cmd(self, cmd: list[str]):
+        self.__setitem__('cmd', " ".join(cmd or []))
+
+    @property
+    def timers(self) -> Timers:
+        return self.__getitem__('timing')
+
+    @timers.setter
+    def timers(self, t: Timers):
+        self.__setitem__('timing', t)
 
     def save(self) -> Result:
         """Saves results to file, if outfile is specified.
@@ -83,58 +94,50 @@ class Result(dict):
         logger.info(f'Wrote to: {self.outfile}')
         return self
 
-    def reconstruct(self, json_: dict):
-        out = self.outfile
-        self.update(json_)
-        self.outfile = out
-        cls = AnalysisResult()
-        for k, v in (json_['analysis_result'].items()):
-            methods = [(m, MethodResult.init(data))
-                       for m, data in v.items()]
-            cls[k] = ClassResult(k, dict(methods))
-        self.analysis_result = cls
-        super().__setitem__('reloaded', True)
-
-    @staticmethod
-    def default_out(input_file, out_dir='out', path_depth=3) -> str:
-        """Helper to generate output file name for input file.
+    def reconstruct(self, json_data: dict) -> Result:
+        """Rebuild result object from JSON data.
 
         Arguments:
-            input_file: program file path.
-            out_dir: path to output directory [default:output].
-            path_depth: number of directories to include [default:3].
+            json_data: a parsed json object of results.
 
         Returns:
-            The generated file name.
+            A re-initialized Result object.
         """
-        dir_depth = -(path_depth + 1)  # +1 for the filename
-        file_only = os.path.splitext(input_file)[0]
-        file_name = '_'.join(file_only.split('/')[dir_depth:])
-        return os.path.join(out_dir, f"{file_name}.json")
+        out, tms = self.outfile, self.timers
+        self.update(json_data)
+        self.outfile, self.timers = out, tms
+        self.analysis_result = ar = AnalysisResult()
+        for k, v in json_data[self.AR].items():
+            values = [(m, MethodResult.init(d))
+                      for m, d in v.items()]
+            ar[k] = ClassResult(k, dict(values))
+        self.__setitem__('reloaded', True)
+        return self
 
     @property
-    def log_fn(self):
-        out_fn = self.outfile or self.default_out(self.infile)
-        return out_fn[:-5] + ".log"
+    def log_fn(self) -> str:
+        """Generate default name for a log file."""
+        return (self.outfile or utils.gen_filename(
+            self.infile, depth=0)) + ".log "
 
     def to_pretty(self) -> Result:
-        times = sorted([self.__getattribute__(t) for t in
-                        utils.attr_of(self, Timeable)],
-                       key=Timeable.sort())
-        times = '\n'.join([str(t) for t in times if str(t)]) \
-                + AnalysisResult.SEP[:-1]
-        box = AnalysisResult.yellow('●')
-        un_cov = f'{box} = uncovered statements (if any)'
-        parts = ['RESULTS', un_cov, str(self.analysis_result), times]
-        logger.info('\n'.join(parts))
+        """Pretty-print analysis results."""
+        logger.info('\n'.join([
+            'RESULTS', str(self.analysis_result),
+            str(self.timers), AnalysisResult.SL]))
         return self
 
 
 class AnalysisResult(dict):
     """Base class for a capturing analysis results."""
 
-    LN_LEN, PAD = 52, 10
-    SEP = sep = "\n" + ('-' * LN_LEN) + '\n'
+    LLN, PAD = 52, 10
+    SL = '-' * LLN
+    SEP = f"\n{SL}\n"
+
+    @property
+    def not_empty(self):
+        return len(self.values()) > 0
 
     @staticmethod
     def cyan_blue(text: str) -> str:
@@ -165,7 +168,10 @@ class AnalysisResult(dict):
 
     def __str__(self) -> str:
         """Neat display of analysis results."""
-        return ''.join([str(cls) for cls in self.values()])
+        un_cov = f'{AnalysisResult.yellow("■")} = ' \
+                 f'uncovered statements (if any)'
+        return un_cov + '\n' + "".join(
+            map(str, self.values()))
 
 
 class ClassResult(AnalysisResult):
@@ -179,14 +185,14 @@ class ClassResult(AnalysisResult):
     def __str__(self):
         sep = self.SEP
         items = map(str, self.values())
-        return f'{sep[1:]}{sep.join(items)}{sep[:-1]}' \
-            if len(self.values()) > 0 else ''
+        vals = f'{sep[1:]}{sep.join(items)}{sep[:-1]}'
+        return vals if self.not_empty else ''
 
 
 class MethodResult(AnalysisResult):
-    """Stores analysis result of a class method."""
+    """Stores analysis result of a method."""
 
-    FLW_SEP = "🌢"
+    FLOW = "🌢"
 
     def __init__(self,
                  full_name: str,
@@ -203,7 +209,6 @@ class MethodResult(AnalysisResult):
         super().__setitem__('sat', None)
         super().__setitem__('model', None)
         super().__setitem__('smtlib', None)
-        super().__setitem__('solver', None)
 
     @staticmethod
     def init(data):
@@ -257,7 +262,7 @@ class MethodResult(AnalysisResult):
 
     @staticmethod
     def flow_fmt(tpl):
-        return f'{tpl[0]}{MethodResult.FLW_SEP}{tpl[1]}'
+        return f'{tpl[0]}{MethodResult.FLOW}{tpl[1]}'
 
     @staticmethod
     def len_est(value):
@@ -281,7 +286,7 @@ class MethodResult(AnalysisResult):
 
     def join_(self, items, fmt=lambda x: x):
         # line length and left padding
-        w, lpad = self.LN_LEN - self.PAD, self.PAD
+        w, lpad = self.LLN - self.PAD, self.PAD
         # item formatting function
         # separators for items and lines
         sep1, sep2 = ', ', '\n' + (' ' * lpad)
@@ -312,49 +317,89 @@ class MethodResult(AnalysisResult):
                 f'{" " * self.PAD}{model}')
 
 
-class Timeable(dict):
+class Timers(dict):
+    """Collection of timers."""
 
-    def __init__(self, prt: dict, name: str):
+    def __init__(self):
+        """Create all timers."""
         super().__init__()
-        prt.__setitem__(name, self)
-        self.order = len(prt.keys())
+        self.parse = Timeable(self, 'Parsing')
+        self.analysis = Timeable(self, 'Analysis')
+        self.eval = Timeable(self, 'Evaluation')
+        self.total = Timeable(self, 'All-time')
+
+    def all(self) -> List[Timeable]:
+        """Get all timeable properties."""
+        return sorted(map(
+            self.__getattribute__,
+            utils.attr_of(self, Timeable)),
+            key=lambda x: x.order)
+
+    def __str__(self) -> str:
+        return '\n'.join(map(str, self.all()))
+
+
+class Timeable(dict):
+    """Abstract structure to track execution time.
+
+    Internally it uses the Python standard library "time",
+    and measure time in nanoseconds by UTC timestamp.
+    Caller is responsible for starting and stopping timer.
+    """
+
+    def __init__(self, parent: dict, name: str):
+        super().__init__()
+        parent.__setitem__(name, self)
+        self.order = len(parent.keys())
         self.name = name
 
-    def start(self):
-        super().__setitem__('start', time.time_ns())
-        return self
-
-    def stop(self):
-        end, start = time.time_ns(), super().__getitem__('start')
-        super().__setitem__('end', end)
-        super().__setitem__('ms', Timeable.millis(start, end))
-        super().__setitem__('sec', Timeable.sec(start, end))
-        return self
-
-    def __bool__(self):
-        return True
-
-    def reload(self, data):
+    def reload(self, data: dict):
+        """Re-loads timeable values."""
         self.update(data)
 
-    @staticmethod
-    def sort():
-        return lambda x: x.order
+    @property
+    def finished(self) -> bool:
+        """True if timer has terminated."""
+        return 'end' in self.keys()
+
+    @property
+    def t0(self) -> float:
+        """Get start time."""
+        return self.__getitem__('start')
+
+    @property
+    def t_sec(self) -> float:
+        """Duration in seconds."""
+        return round(self.__getitem__('sec'), 4)
+
+    def __bool__(self) -> bool:
+        """Timeable object is always non-falsy."""
+        return True
+
+    def start(self) -> Timeable:
+        """Start timer."""
+        self.__setitem__('start', time.time_ns())
+        return self
+
+    def stop(self) -> Timeable:
+        """Stop timer."""
+        end = time.time_ns()
+        self.__setitem__('ms', self.diff(self.t0, end, 1e6))
+        self.__setitem__('sec', self.diff(self.t0, end, 1e9))
+        self.__setitem__('end', end)
+        return self
 
     @staticmethod
-    def sec(start, end) -> float:
-        return Timeable.measure(start, end, 1e9)
+    def diff(start: float, end: float, units: float) -> float:
+        """Get time difference between start and end times.
 
-    @staticmethod
-    def millis(start, end) -> float:
-        return Timeable.measure(start, end, 1e6)
+        Arguments:
+            start: start time, nanoseconds
+            end: end time, nanoseconds
+            units: divisor to adjust output units
+        """
+        return (end - start) / units
 
-    @staticmethod
-    def measure(start, end, units) -> float:
-        return round((end - start) / units, 6)
-
-    def __str__(self):
-        if 'end' not in self.keys():
-            return ''
-        s = round(super().__getitem__('sec'), 4)
-        return f'{self.name:<{AnalysisResult.PAD * 2}} {s:>{10}} sec'
+    def __str__(self) -> str:
+        t = f' {self.t_sec:>10} sec' if self.finished else '-'
+        return f'{self.name:<16}{t}'
