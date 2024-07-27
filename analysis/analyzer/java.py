@@ -123,11 +123,32 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
 
     @staticmethod
     def is_array_exp(ctx: JavaParser.compilationUnit):
-        """Match 'arrName' ('[' expression ']')+ ('[' ']')*
+        """Match 'arrName'? ('[' expression ']')+ ('[' ']')*
            grammars/JavaParser.g4 L740."""
-        return (ctx.getChildCount() > 2 and
-                ctx.getChild(1).getText() == "[" and
-                ExtVisitor.last(ctx).getText() == "]")
+        # need at minimum two children '[' and ']'
+        if (cc := ctx.getChildCount()) >= 2:
+            # skip first if it not a lbracket
+            start = 0 if ctx.getChild(0).getText() == "[" else 1
+            nodes = [ctx.getChild(i).getText()
+                     for i in range(start, cc)]
+            # still require min two children
+            if (n := len(nodes)) < 2:
+                return False
+            # chunk nodes into len-3 triples
+            exps = [nodes[(i * 3):(i * 3) + 3]
+                    for i in range(0, n // 3)]
+            # head is brackets containing expressions
+            # => find first index where above is false
+            split_idx = next(
+                (i * 3 for (i, (l, _, r))
+                 in enumerate(exps)
+                 if (l, r) != ('[', ']')), n)
+            # remaining tail, if any, must be [ ]-pairs
+            pairs = nodes[split_idx:]
+            return (len(pairs) % 2 == 0 and
+                    all([node == ('[' if i % 2 == 0 else ']')
+                         for i, node in enumerate(pairs)]))
+        return False
 
     @staticmethod
     def is_array_init(ctx: JavaParser.compilationUnit):
