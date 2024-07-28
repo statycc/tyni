@@ -101,7 +101,7 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
     # operators JavaLexer L#155
     OP = '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%'.split(',')
 
-    def visit(self, tree):
+    def visit(self, tree: JavaParser.compilationUnit) -> ExtVisitor:
         super().visit(tree)
         return self
 
@@ -122,12 +122,20 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         return ctx.getChild(idx) if cc else None
 
     @staticmethod
-    def is_array_exp(ctx: JavaParser.compilationUnit):
-        """Match 'arrName'? ('[' expression ']')+ ('[' ']')*
-           grammars/JavaParser.g4 L740."""
+    def is_array_exp(ctx: JavaParser.compilationUnit) -> bool:
+        """Match array init and access patterns:
+           1) identifier? ('[' ']')+
+           2) identifier? ('[' expression ']')+ ('[' ']')*
+
+        Arguments:
+            ctx: parse tree compilation unit.
+
+        Returns:
+            True if the context matches pattern.
+       """
         # need at minimum two children '[' and ']'
         if (cc := ctx.getChildCount()) >= 2:
-            # skip first if it not a lbracket
+            # skip first if not lbracket
             start = 0 if ctx.getChild(0).getText() == "[" else 1
             nodes = [ctx.getChild(i).getText()
                      for i in range(start, cc)]
@@ -151,78 +159,100 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         return False
 
     @staticmethod
-    def is_array_init(ctx: JavaParser.compilationUnit):
-        """Match arrayInitialize of form
-          '{' (varInitializer (',' varInitializer)* ','?)? '}'
-           grammars/JavaParser.g4 L262--264."""
-        if (cc := ctx.getChildCount()) % 2 == 1:
-            ev = [n for n in range(0, cc, 2)]
-            return (ctx.getChild(ev[0]).getText() == '{' and
-                    ctx.getChild(ev[-1]).getText() == '}' and
-                    all([ctx.getChild(x).getText() == ','
-                         for x in ev[1:-1]]))
-        return (cc == 2 and
-                ExtVisitor.last(ctx, 2).getText() == '{' and
-                ExtVisitor.last(ctx).getText() == '}')
+    def is_array_init(ctx: JavaParser.compilationUnit) -> bool:
+        """Array initialization pattern {…,…,…}."""
+        return ((cc := ctx.getChildCount()) > 1 and
+                ctx.getChild(0).getText() == '{' and
+                ctx.getChild(cc - 1).getText() == '}' and
+                ArrayInitializerVisitor().visit(ctx).match)
 
 
 class ClassVisitor(ExtVisitor):
-    """Visits each class (possibly nested) and its methods."""
 
     def __init__(self, parent: ClassVisitor = None):
+        """Top-level parse-tree visitor that visits each
+        class, including nested and siblings, and methods.
+
+        Arguments:
+            parent: parent ClassVisitor, if any.
+        """
         self.parent: ClassVisitor = parent
         self.result: AnalysisResult = AnalysisResult()
         self.name: str = ''
 
-    def hierarchy(self, name):
-        return name if not (self.parent and self.parent.name) \
-            else ('.'.join([self.parent.name, name]))
+    def hierarchy(self, name: str) -> str:
+        """Construct hierarchical name, traversing
+        the parent classes.
+
+        Arguments:
+            name: name of current class.
+
+        Returns:
+            Full hierarchical name; for examples,
+            class Prog { class Main { class Inner {}}}}
+            returns "Prog.Main.Inner".
+        """
+        return (name if not (self.parent and self.parent.name)
+                else ('.'.join([self.parent.name, name])))
 
     @property
-    def root(self):
+    def root(self) -> ClassVisitor:
+        """Gets the root-level ClassVisitor."""
         top = self
         while top.parent:
             top = top.parent
         return top
 
-    @staticmethod
-    def record(node, n, data):
-        node.result[n] = data
+    def record(self, data: AnalysisResult) -> None:
+        """Record analysis result.
 
-    @staticmethod
-    def mat_format(mat):
-        return list(set(mat))
+        Arguments:
+            data: analysis result.
+        """
+        node = (self.root if isinstance(data, ClassResult)
+                else self)
+        node.result[self.name] = data
+
+    def to_result(self) -> ClassResult:
+        """Converts self to a ClassResult instance."""
+        return ClassResult(self.name, self.result)
 
     # noinspection PyTypeChecker
     def visitClassDeclaration(
-            self, ctx: JavaParser.ClassDeclarationContext):
+            self, ctx: JavaParser.ClassDeclarationContext
+    ) -> None:
+        """Handler for visiting a class."""
         self.name = self.hierarchy(ctx.identifier().getText())
-        body = ctx.getChild(ctx.getChildCount() - 1)
+        cv, body = ClassVisitor(parent=self), ExtVisitor.last(ctx)
         logger.debug(f'class: {self.name}')
-        result = ClassVisitor(parent=self).visit(body).result
-        self.record(self.root, self.name,
-                    ClassResult(self.name, result))
+        self.record(cv.visit(body).to_result())
 
     def visitMethodDeclaration(
-            self, ctx: JavaParser.MethodDeclarationContext):
-        name = ctx.identifier().getText()
-        logger.debug(f'method: {name}')
-        prog = RecVisitor().visit(ctx.methodBody())
-        self.record(self, name, MethodResult(
-            self.hierarchy(name), self.og_text(ctx),
-            self.mat_format(prog.matrix),
-            prog.vars, prog.skips))
+            self, ctx: JavaParser.MethodDeclarationContext
+    ) -> None:
+        """Handler for visiting a method."""
+        self.name = ctx.identifier().getText()
+        h, c = self.hierarchy(self.name), self.og_text(ctx)
+        logger.debug(f'method: {self.name}')
+        mth = RecVisitor().visit(ctx.methodBody())
+        f, v, s = mth.flows, mth.vars, mth.skips
+        self.record(MethodResult(h, c, f, v, s))
 
 
 class RecVisitor(ExtVisitor):
-    """Recursively process method body"""
+    """Recursively process method body or its commands."""
 
     def __init__(self):
         self.vars = set()  # all encountered variables
-        self.out_v = set()  # encountered out variables
+        self.out_v = set()  # encountered out-variables
         self.new_v = set()  # encountered declarations
         self.matrix: List[Tuple[str, str]] = []  # data flows (in, out)
-        self.skips = []
+        self.skips: List[str] = []  # omitted statements
+
+    @property
+    def flows(self) -> List[Tuple[str, str]]:
+        """Unique flow pairs."""
+        return list(set(self.matrix))
 
     def skipped(self, ctx, desc: str = "") -> None:
         super().skipped(ctx, desc)
@@ -644,3 +674,13 @@ class IdVisitor(ExtVisitor):
     def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
         super().visitIdentifier(ctx)
         self.flat.append(ctx.getText())
+
+
+class ArrayInitializerVisitor(ExtVisitor):
+
+    def __init__(self):
+        self.match = False
+
+    def visitArrayInitializer(
+            self, ctx: JavaParser.ArrayInitializerContext):
+        self.match = True

@@ -18,21 +18,31 @@ Steps = Enum('Steps', [
 
 # noinspection PyUnusedLocal
 def main():
+    """Command-line interface main routine."""
+
+    # parse the command arguments
     parser = ArgumentParser(prog=prog_name)
     args = __parse_args(parser)
 
+    # make sure input file is specified
     if not args.input:
         parser.print_help()
         sys.exit(1)
 
+    # initialize results objects
     result = Result(args.input, args.out, args.save, args=argv)
+    # setup logger utility
     logger = __logger_setup(
         args.log_level, result.log_fn if args.log else None)
+
+    # if input file does not exist,
+    # print nice message to explain, then exit.
     if not isfile(args.input):
         logger.fatal(f'{Colors.FAIL}File does not exist: '
                      f'{args.input}{Colors.ENDC}')
         sys.exit(1)
 
+    # analyzer and solver setup
     # noinspection PyPep8Naming
     MyAnalyzer = choose_analyzer(args.input)
     if MyAnalyzer is None:
@@ -42,6 +52,7 @@ def main():
     result.solver = Evaluate.info()
     logger.debug(f'Using {result.analyzer}')
 
+    # run the analyzer
     result.timers.total.start()
     analyzer = MyAnalyzer(result)
     analyzer.parse(result.timers.parse)
@@ -56,15 +67,27 @@ def main():
     result.save().to_pretty()
 
 
-class __RemoveColorFilter(logging.Filter):
-    def filter(self, record):
-        if record and record.msg and isinstance(record.msg, str):
-            record.msg = Colors.un_color(record.msg)
-        return True
-
-
 def __logger_setup(level_arg: int, log_filename: str = None) \
         -> logging.Logger:
+    """Setup logger.
+
+    Arguments:
+        level_arg: logger verbosity level
+        log_filename: to write the log to a file
+
+    Returns:
+        A logger instance.
+    """
+
+    class __RemoveColorFilter(logging.Filter):
+        """Removes color-characters from logger text."""
+
+        def filter(self, record):
+            if record and record.msg and \
+                    isinstance(record.msg, str):
+                record.msg = Colors.un_color(record.msg)
+            return True
+
     level = [logging.FATAL, logging.ERROR, logging.WARNING,
              logging.INFO, logging.DEBUG][level_arg]
     root_log = logging.getLogger(prog_name)

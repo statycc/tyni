@@ -196,7 +196,7 @@ class MethodResult(AnalysisResult):
     def __init__(self,
                  full_name: str,
                  source: str,
-                 flows: list[list[str]],
+                 flows: list[tuple[str, str]],
                  identifiers: set[str],
                  skips: List[str] = None):
         super().__init__()
