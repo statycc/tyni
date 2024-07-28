@@ -95,10 +95,14 @@ class JavaAnalyzer(AbstractAnalyzer):
 class ExtVisitor(BaseVisitor, JavaParserVisitor):
     """Shared basic behavior for all Java visitors."""
 
+    # increment/decrement
+    IC_DC = '++,--'.split(',')
     # unary operators
     U_OP = '++,--,!,~,+,-'.split(',')
-    # operators JavaLexer L#155
+    # binary operators, JavaLexer L#155
     OP = '<,>,==,<=,>=,!=,&&,||,+,-,*,/,&,|,^,%'.split(',')
+    # assignment operators
+    A_OP = '=,+=,-=,*=,/=,%=,&=,|=,^=,>>=,>>>=,<<='.split(',')
 
     def visit(self, tree: JavaParser.compilationUnit) -> ExtVisitor:
         super().visit(tree)
@@ -121,6 +125,12 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         return ctx.getChild(idx) if cc else None
 
     @staticmethod
+    def flatten(ctx: JavaParser.compilationUnit):
+        while ctx.getChildCount() == 1:
+            ctx = ctx.getChild(0)
+        return ctx
+
+    @staticmethod
     def is_array_exp(ctx: JavaParser.compilationUnit) -> bool:
         """Match array init and access patterns:
            1) identifier? ('[' ']')+
@@ -134,12 +144,13 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
        """
         # need at minimum two children '[' and ']'
         if (cc := ctx.getChildCount()) >= 2:
-            # skip first if not lbracket
+            # drop first if not lbracket
             start = 0 if ctx.getChild(0).getText() == "[" else 1
             nodes = [ctx.getChild(i).getText()
                      for i in range(start, cc)]
-            # still require min two children
-            if (n := len(nodes)) < 2:
+            # basic pattern check
+            if ((n := len(nodes)) < 2 or nodes[0] != '['
+                    or nodes[-1] != ']'):
                 return False
             # chunk nodes into len-3 triples
             exps = [nodes[(i * 3):(i * 3) + 3]
@@ -164,6 +175,16 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
                 ctx.getChild(0).getText() == '{' and
                 ctx.getChild(cc - 1).getText() == '}' and
                 ArrayInitializerVisitor().visit(ctx).match)
+
+    @staticmethod
+    def is_app(ctx: JavaParser.compilationUnit) -> bool:
+        """Constructor/method call pattern exp(…,…)."""
+        if ctx.getChildCount() == 2:
+            call = ExtVisitor.flatten(ctx.getChild(1))
+            return ((cn := call.getChildCount()) >= 3 and
+                    call.getChild(0).getText() == '(' and
+                    call.getChild(cn - 1).getText() == ')')
+        return False
 
 
 class ClassVisitor(ExtVisitor):
@@ -388,6 +409,7 @@ class RecVisitor(ExtVisitor):
         Returns:
             <in-variables, out-variables>
         """
+        empty = set(), set()
 
         def default_handler():
             if in_v := RecVisitor.occurs(ctx):
@@ -395,57 +417,56 @@ class RecVisitor(ExtVisitor):
             return in_v, set()
 
         if (cc := ctx.getChildCount()) == 0:
-            return set(), set()
-
-        elif cc == 1:  # terminal identifiers, constants
-            if ctx.getChild(0).getChildCount() == 0:
-                return default_handler()
-            else:
-                return self.rvars(ctx.getChild(0))
+            return empty
+        elif cc == 1 and ctx.getChild(0).getChildCount() == 0:
+            return default_handler()
+        elif cc == 1:
+            return self.rvars(ctx.getChild(0))
 
         elif cc == 2:  # unary, new, method calls
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
             cn = c2.getChildCount()
-            if c1t == "new":  # new object init
+            # new object, array, etc.
+            if c1t == "new" and self.is_app(c2):
+                self.skipped(c2, 'new obj')
+                return empty
+            if c1t == "new":
                 return self.rvars(c2)
             # unary op
             if c1t in self.U_OP or c2t in self.U_OP:
                 id_node = c1 if c1t not in self.U_OP else c2
                 return self.rvars(id_node)
-            if cn == 1 and c2t == '()':
-                return self.rvars(c1)
-            if (cn >= 3 and
-                    c2.getChild(0).getText() == '(' and
-                    c2.getChild(cn - 1).getText() == ')'):
+            # application or parenthesized
+            if ((cn == 1 and c2t == '()')
+                    or (cn >= 3 and c2.getChild(0).getText() == '('
+                        and self.last(c2).getText() == ')')):
                 self.skipped(ctx, 'call/block:')
-                return set(), set()
-            # array exp/initialization
-            if (cn >= 3 and c2.getChild(0).getText() == '[' and
-                    (c2.getChild(cn - 1).getText() == ']' or
-                     c2.getChild(cn - 2).getText() == ']')):
-                c1v, _ = self.rvars(c1)
-                c2v = [n[0] for n in map(self.rvars, c2.children)]
-                return c1v | set(reduce(set.union, c2v)), set()
-
+                return empty
             # something else
-            self.skipped(ctx, 'rvars-2')
-            return default_handler()
+            (il, ol), (ir, o_r) = self.rvars(c1), self.rvars(c2)
+            return (il | ir), (ol | o_r)
 
-        elif self.is_array_init(ctx):
-            chd = map(ctx.getChild, range(1, cc, 2))
-            c2v = [n[0] for n in map(self.rvars, chd)]
-            return set(reduce(set.union, c2v)), set()
+        # array exp/access/init pattern
+        elif self.is_array_exp(ctx) \
+                or self.is_array_init(ctx) \
+                or self.is_array_init(self.last(ctx)):
+            lc, rc = set(), set()
+            for child in ctx.children:
+                (il, ol) = self.rvars(child)
+                lc, rc = lc | il, rc | ol
+            return lc, rc
 
-        elif cc == 3:  # binary ops
+        # binary and dot ops, blocks
+        elif cc == 3:
             lc, op, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             if (opt := op.getText()) == ".":
                 self.skipped(ctx, 'dot-op')
-                return set(), set()
+                return empty
             elif opt in self.OP:
-                cl, _ = self.rvars(lc)
-                cr, _ = self.rvars(rc)
-                return cl | cr, set()
+                il, ol = self.rvars(lc)
+                ir, o_r = self.rvars(rc)
+                return il | ir, ol | o_r
             # block statement
             elif lc.getText() == '(' and rc.getText() == ')':
                 return self.rvars(op)
@@ -453,20 +474,24 @@ class RecVisitor(ExtVisitor):
             self.skipped(ctx, 'rvars-3')
             return default_handler()
 
+        # ternary operation
         elif cc == 5:
-            c0, c1, c2, c3, c4 = [ctx.getChild(n) for n in range(5)]
-            # ternary operation
+            c0, c1, c2, c3, c4 = map(ctx.getChild, range(5))
             if c1.getText() == "?" and c3.getText() == ":":
-                c2v = [n[0] for n in map(self.rvars, [c0, c2, c4])]
-                return set(reduce(set.union, c2v)), set()
+                lc, rc = set(), set()
+                for child in [c0, c2, c4]:
+                    (il, ol) = self.rvars(child)
+                    lc, rc = lc | il, rc | ol
+                return lc, rc
 
-        if ctx.getChild(0).getText() == "switch":  # switch expression
-            vst = RecVisitor().visit(ctx)
-            logger.debug(f'R/in:  {", ".join(vst.vars)}')
-            return vst.vars, set()
-
-        if RecVisitor.is_array_exp(ctx):  # array accesses
-            return default_handler()
+        # switch expression
+        elif ctx.getChild(0).getText() == "switch":
+            self.skipped(ctx, f'switch-exp')
+            # vst = RecVisitor().visit(ctx)
+            # logger.debug(f'R/in:  {", ".join(vst.vars)}')
+            # logger.debug(f'R/out:  {", ".join(vst.out_v)}')
+            # self.skips += vst.skips
+            return empty
 
         # something else
         self.skipped(ctx, f'rvars-{cc}')
@@ -560,36 +585,35 @@ class RecVisitor(ExtVisitor):
         if (cc := ctx.getChildCount()) == 3:
             lc, o, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             op = o.getText()
-            # ASSIGNMENT: identify from operator form
-            # if compound, out-variable is also an in-variable,
-            # but such data flow is irrelevant for this analysis.
-            if op in '=,+=,-=,*=,/=,%=,&=,|=,^=,>>=,>>>=,<<=' \
-                    .split(','):
+            # Recognize assignment by operator form.
+            # If compound, out-variable is also an in-variable,
+            # but reflexive flow is irrelevant for this analysis.
+            if op in self.A_OP:
                 logger.debug(f'bop: {ctx.getText()}')
-                in_l, out_v = self.lvars(lc)
-                in_v, _ = self.rvars(rc)
-                self.merge(self.vars, out_v, in_v, in_l)
-                self.merge(self.out_v, out_v)
+                in_l, out_l = self.lvars(lc)
+                in_r, _ = self.rvars(rc)
+                self.merge(self.vars, in_l, in_r, out_l)
+                self.merge(self.out_v, out_l)
                 flows = self.compose(
-                    self.assign(in_v, out_v),
-                    self.assign(in_l, out_v))
+                    self.assign(in_r, out_l),
+                    self.assign(in_l, out_l))
                 self.matrix = self.compose(self.matrix, flows)
                 return
 
             # DOT OPERATOR, e.g., System.out.println
             if op == ".":
-                return self.skipped(ctx, 'dot-op')
+                return self.skipped(ctx, 'dot-exp')
 
         # UNARY incr/decr
         if cc == 2:
             c1, c2 = [ctx.getChild(n).getText() for n in [0, 1]]
-            if c1 in ("++", "--") or c2 in ("++", "--"):
+            if c1 in self.IC_DC or c2 in self.IC_DC:
                 logger.debug(f'unary: {ctx.getText()}')
-                in_l, out_v = self.lvars(ctx)
-                self.merge(self.vars, out_v, in_l)
-                self.merge(self.out_v, out_v)
-                flows = self.assign(in_l, out_v)
-                self.matrix = self.compose(self.matrix, flows)
+                in_l, out_l = self.lvars(ctx)
+                self.merge(self.vars, out_l, in_l)
+                self.merge(self.out_v, out_l)
+                self.matrix = self.compose(
+                    self.matrix, self.assign(in_l, out_l))
                 return
 
         # METHOD CALL -> fall-through
@@ -630,6 +654,7 @@ class RecVisitor(ExtVisitor):
         self.merge(self.out_v, child.out_v)
         self.merge(self.new_v, child.new_v)
         self.matrix = self.compose(self.matrix, child.matrix)
+        self.skips += child.skips
         return self
 
     def corr_stmt(
