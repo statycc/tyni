@@ -5,7 +5,7 @@ help:
 	@echo "lint      ─ run linter"
 	@echo "ptest     ─ try parse all programs"
 	@echo "missing   ─ stmts missing test coverage (ignoring parser)"
-	@echo "build     ─ compile java programs to bytecode"
+	@echo "compile   ─ compile java programs to bytecode"
 	@echo "bytecode  ─ compile java programs to -readable- bytecode"
 	@echo "parser    ─ build a parser from grammars"
 	@echo "cloc      ─ code stats (requires cloc)"
@@ -22,7 +22,8 @@ PNAME = Program
 P_DIR = programs
 O_DIR = build
 B_DIR = bytecode
-PROGS = $(wildcard $(P_DIR)/*/*.java) $(wildcard benchmarks/JavaSourceCode/**/**/*.java)
+PROGZ = $(patsubst %/,%, $(patsubst $(P_DIR)/%,%, $(dir $(wildcard $(P_DIR)/*/$(PNAME).java))))
+PROGS = $(wildcard $(P_DIR)/**/*.java) $(wildcard benchmarks/JavaSourceCode/**/**/*.java)
 
 ### ANALYSIS
 ANALYZER = analysis
@@ -33,7 +34,7 @@ dev:
 	@source venv/bin/activate;
 	@pip3 install -q -r requirements-dev.txt
 
-build: $(P_DIR)
+compile: $(P_DIR)
 	@$(foreach p, $(PROGZ), javac -d ./$(O_DIR)/ $(P_DIR)/$(p)/*.java ; )
 
 bytecode: $(O_DIR)

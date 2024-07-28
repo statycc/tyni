@@ -7,19 +7,18 @@ A static analyzer implementing our information flow calculus (work in progress).
 1. User specifies an input file.
 2. Parse the input to obtain a parse-tree.
 3. Capture a security-flow matrix from the parse tree.
-4. Evaluate the matrix against security policy & classes using a solver.
+4. Evaluate the matrix against security policy and security classes using a solver.
 
 ```
-[input].java                         ┐
----> parser                          ├─ ❶ parsing 
----> parse-tree                      ┘
-                                     ┐
----> analyze tree                    ├─ ❷ analysis 
----> gather matrix data              ┘      
-                                     
----> evaluate matrix data            ]─ ❸ evaluation 
-
-out: interesting info              
+[input].java
+                                 ─┐                     
+1. generate parse-tree            │ ❶ parsing  by ANTLR
+                                 ─┤
+2. gather matrix data             │ ❷ analysis by IRC calculus
+                                 ─┤
+3. evaluate matrix data           │ ❸ evaluation by Solver
+                                 ─┘
+==> out: interesting info about input program
 ```
 
 ## Interpreting analyzer results
@@ -33,12 +32,13 @@ variables          : Encountered variables, see note below
 flows              : Interfering variable pairs (in, out)    
 satisfiability     : Solver outcome SAT/UNSAT                 
 model              : If SAT, security levels to make the method non-interfering
-skips              : Uncovered statements (if any) 
+skips              : Uncovered program statements, if any 
 ```
 
 * The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.
+* If a method includes statements the analyzer does not recognize, for practical reasons these statements are skipped, but there is no guarantee of correctness for such a method.
 * To inspect all captured data, save the result to a file. 
-
+* The full details of results gathered by the analyzer are in `analysis/result.py`. 
 
 
 ## Getting Started
@@ -52,8 +52,6 @@ skips              : Uncovered statements (if any)
 
 2. **Run analyzer on input program**
 
-   Supported input languages: Java v. 7/8/11/17.
-
    By default, the result is pretty-printed at the screen.
    To write the result to a file, specify `--save`.
 
@@ -64,7 +62,7 @@ skips              : Uncovered statements (if any)
    For example
 
    ```
-   python3 -m analysis programs/ifcprog1/Program.java
+   python3 -m analysis programs/ifcprog1/Program.java --save
    ```
 
 3. **For help**, and for a full list of available arguments, run
@@ -73,24 +71,22 @@ skips              : Uncovered statements (if any)
    python3 -m analysis
    ```
 
-### Advanced usage
+**Analyze and evaluate separately.**
 
-1. **Analyze and evaluate separately.**
+It is possible to run analysis and evaluation separately.
+This allows to evaluate the same program against different security policies, without repeating the prior steps.
 
-   It is possible to run analysis and evaluation separately.
-   This allows to evaluate the same program against different security policies, without repeating the prior steps.
-   
-   First, parse and analyze a program, and save the result to a file. 
+First, parse and analyze a program, and save the result to a file. 
 
-   ```
-   python3 -m analysis programs/IFCprog1/Program.java --run A --out result.json
-   ```
-   
-   Then, give the prior result as input to the analyzer.
+```
+python3 -m analysis programs/ifcprog1/Program.java --run A --out result.json
+```
 
-   ```
-   python3 -m analysis result.json 
-   ```
+Then, give the prior result as input to the analyzer.
+
+```
+python3 -m analysis result.json 
+```
 
 ## Development
 
@@ -120,6 +116,7 @@ skips              : Uncovered statements (if any)
 │  ├─ analyzers/           # analyzers for input languages
 │  ├─ parser/              # generated parser (from grammars)
 │  └─ *                    # implementation
+├─ benchmarks/             # (submodule) benchmark suite
 ├─ grammars/               # input language specifications
 ├─ programs/               # example programs for analysis
 ├─ tests/                  # unit tests
@@ -143,11 +140,16 @@ make help     # lists other available commands
 ```
 
 * Running these commands assumes dev requirements are installed.
-  Run `setup.sh` for easy dev-setup.
+  Run `./setup.sh` for easy dev-setup.
 
 * The analyzer expects input in high-level input language, i.e., a `.java` file.
-  It is not necessary to compile the java programs.
-  But bytecode may be interesting, so there are commands to generate bytecode.
+  It is not necessary to compile the java programs, _but_,
+
+  * Bytecode may be interesting, so there are commands to generate bytecode.
+  
+  * The parser is more generous than a compiler, and will parse invalid 
+    expressions. To make sure input programs are _actually valid_, 
+    running them through a compiler is a useful sanity check.
 
 * It is also not necessary to rebuild the parser; it is already built. 
   But it is easy to rebuild, if necessary, with ANTLR and the Makefile commands.

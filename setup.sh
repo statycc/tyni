@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# GIT: make sure submodules are present
+git submodule init
+git submodule update
+
 # INSTALL PYTHON DEPENDENCIES
 python3 -m pip install --upgrade pip
 pip3 install -r requirements-dev.txt
