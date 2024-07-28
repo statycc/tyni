@@ -125,7 +125,8 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         return ctx.getChild(idx) if cc else None
 
     @staticmethod
-    def flatten(ctx: JavaParser.compilationUnit):
+    def flatten(ctx: JavaParser.compilationUnit) \
+            -> JavaParser.compilationUnit:
         while ctx.getChildCount() == 1:
             ctx = ctx.getChild(0)
         return ctx
@@ -181,9 +182,10 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         """Constructor/method call pattern exp(…,…)."""
         if ctx.getChildCount() == 2:
             call = ExtVisitor.flatten(ctx.getChild(1))
-            return ((cn := call.getChildCount()) >= 3 and
-                    call.getChild(0).getText() == '(' and
-                    call.getChild(cn - 1).getText() == ')')
+            return (((cn := call.getChildCount()) == 1 and
+                     call.getChild(0).getText() == '()') or
+                    ((cn >= 3 and call.getChild(0).getText() == '('
+                      and call.getChild(cn - 1).getText() == ')')))
         return False
 
 
@@ -423,24 +425,37 @@ class RecVisitor(ExtVisitor):
         elif cc == 1:
             return self.rvars(ctx.getChild(0))
 
-        elif cc == 2:  # unary, new, method calls
+        # unary, new objects, method calls
+        elif cc == 2:
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
-            cn = c2.getChildCount()
             # new object, array, etc.
-            if c1t == "new" and self.is_app(c2):
-                self.skipped(c2, 'new obj')
-                return empty
-            if c1t == "new":
+            if c1t == "new" and self.is_app(c2):  # new objects
+                # no cover for nested references
+                if len(ref := self.occurs(c2.getChild(0))) != 1:
+                    self.skipped(c2, 'new obj')
+                    return empty
+                # params flow through uniq object reference
+                ref = self.uniq_name(list(ref)[0], self.vars, 0)
+                params = self.flatten(c2.getChild(1)).getChild(1)
+                o_in = set(reduce(set.union, [
+                    self.rvars(p)[0] for p in map(
+                        params.getChild,
+                        range(0, params.getChildCount(), 2))], set()))
+                # merge constructor flows and variables
+                flows = self.assign(o_in, {ref})
+                self.merge(self.vars, o_in)
+                self.matrix = self.compose(self.matrix, flows)
+                logger.debug(f'R/obj: {", ".join(o_in)} → {ref}')
+                return {ref}, set()
+            if c1t == "new":  # new arrays, etc.
                 return self.rvars(c2)
             # unary op
             if c1t in self.U_OP or c2t in self.U_OP:
                 id_node = c1 if c1t not in self.U_OP else c2
                 return self.rvars(id_node)
             # application or parenthesized
-            if ((cn == 1 and c2t == '()')
-                    or (cn >= 3 and c2.getChild(0).getText() == '('
-                        and self.last(c2).getText() == ')')):
+            if self.is_app(ctx):
                 self.skipped(ctx, 'call/block:')
                 return empty
             # something else
@@ -472,7 +487,7 @@ class RecVisitor(ExtVisitor):
                 return self.rvars(op)
             # something else
             self.skipped(ctx, 'rvars-3')
-            return default_handler()
+            return empty
 
         # ternary operation
         elif cc == 5:
@@ -487,15 +502,11 @@ class RecVisitor(ExtVisitor):
         # switch expression
         elif ctx.getChild(0).getText() == "switch":
             self.skipped(ctx, f'switch-exp')
-            # vst = RecVisitor().visit(ctx)
-            # logger.debug(f'R/in:  {", ".join(vst.vars)}')
-            # logger.debug(f'R/out:  {", ".join(vst.out_v)}')
-            # self.skips += vst.skips
             return empty
 
         # something else
         self.skipped(ctx, f'rvars-{cc}')
-        return default_handler()
+        return empty
 
     def xvars(self, ctx: JavaParser.ExpressionContext) -> set[str]:
         """Find variables in an expression, with added knowledge that
@@ -600,11 +611,11 @@ class RecVisitor(ExtVisitor):
                 self.matrix = self.compose(self.matrix, flows)
                 return
 
-            # DOT OPERATOR, e.g., System.out.println
+            # dot operator e.g., System.out.println
             if op == ".":
                 return self.skipped(ctx, 'dot-exp')
 
-        # UNARY incr/decr
+        # unary incr/decr
         if cc == 2:
             c1, c2 = [ctx.getChild(n).getText() for n in [0, 1]]
             if c1 in self.IC_DC or c2 in self.IC_DC:
@@ -616,20 +627,21 @@ class RecVisitor(ExtVisitor):
                     self.matrix, self.assign(in_l, out_l))
                 return
 
-        # METHOD CALL -> fall-through
+        # method call => fall-through
         if cc == 1 and (c0 := ctx.getChild(0)).getChildCount() == 2:
             if (c1 := c0.getChild(1)).getChildCount() == 3:
                 fst, lst = [c1.getChild(n).getText() for n in (0, 2)]
                 if fst == '(' and lst == ')':
                     return super().visitExpression(ctx)
 
-        if cc == 1 and len(ct := ctx.getText()):
-            # numeric, string constants
-            if ct.isdecimal(): return
-            if ct[0] == '"' and ct[-1] == '"': return
+        # numeric or string constants
+        # noinspection PyUnboundLocalVariable
+        if (cc == 1 and len(ct := ctx.getText())
+                and (ct.isdecimal()
+                     or (ct[0] == '"' and ct[-1] == '"'))):
+            return
 
-        # something else
-        self.skipped(ctx, f'exp {ctx.getChildCount()}')
+        # something else => fall through
         super().visitExpression(ctx)
 
     def visitSwitchExpression(
@@ -679,9 +691,9 @@ class RecVisitor(ExtVisitor):
             fst_branch.scoped_merge(snd_branch)
         self.scoped_merge(fst_branch)
 
-    def __switch(
-            self, ctx: Union[JavaParser.StatementContext |
-                             JavaParser.SwitchExpressionContext]):
+    def __switch(self, ctx: Union[
+        JavaParser.StatementContext |
+        JavaParser.SwitchExpressionContext]):
         switch_ctx, switch_var = RecVisitor(), ctx.getChild(1)
         # iterate cases
         for cn in range(3, ctx.getChildCount() - 1):

@@ -6,11 +6,11 @@ def helper(prog, cls_name, method):
     res = Result(f'programs/{prog}/Program.java')
     JavaAnalyzer(res).parse().analyze()
     mth = res.analysis_result[cls_name][method]
-    return sorted(mth.ids), mth.flows
+    return sorted(mth.ids), mth.flows, mth.skips
 
 
 def test_ifc_prog1():
-    vrs, flows = helper('ifcprog1', 'Program', 'example')
+    vrs, flows, skips = helper('ifcprog1', 'Program', 'example')
     assert vrs == ['x', 'y', 'z']
     assert ('x', 'y') in flows
     assert ('y', 'x') in flows
@@ -20,7 +20,7 @@ def test_ifc_prog1():
 
 
 def test_ifc_prog2a():
-    vrs, flows = helper('ifcprog2a', 'Program', 'example')
+    vrs, flows, skips = helper('ifcprog2a', 'Program', 'example')
     assert vrs == ['w', 'x', 'y', 'z']
     assert ('x', 'w') in flows
     assert ('y', 'x') in flows
@@ -29,7 +29,7 @@ def test_ifc_prog2a():
 
 
 def test_ifc_prog2b():
-    vrs, flows = helper('ifcprog2b', 'Program', 'example')
+    vrs, flows, skips = helper('ifcprog2b', 'Program', 'example')
     assert vrs == ['w', 'x', 'y', 'z']
     assert ('w', 'z') in flows
     assert ('x', 'z') in flows
@@ -41,7 +41,7 @@ def test_ifc_prog2b():
 
 
 def test_ifc_prog3():
-    vrs, flows = helper('ifcprog3', 'Program', 'example')
+    vrs, flows, skips = helper('ifcprog3', 'Program', 'example')
     assert vrs == ['i', 'j', 's1', 's2', 't']
     assert ('t', 'i') in flows
     assert ('j', 'i') in flows
@@ -52,10 +52,11 @@ def test_ifc_prog3():
     assert ('i', 's2') in flows
     assert ('j', 's2') in flows
     assert len(flows) == 8
+    assert not skips
 
 
 def test_ifc_ex1():
-    vrs, flows = helper('ifcex1', 'Program', 'example')
+    vrs, flows, skips = helper('ifcex1', 'Program', 'example')
     assert vrs == ['h', 'y', 'z']
     assert ('h', 'y') in flows
     assert ('y', 'z') in flows
@@ -64,7 +65,7 @@ def test_ifc_ex1():
 
 
 def test_ifc_ex2():
-    vrs, flows = helper('ifcex2', 'Program', 'example')
+    vrs, flows, skips = helper('ifcex2', 'Program', 'example')
     assert vrs == ['x', 'y', 'z']
     assert ('y', 'x') in flows
     assert ('z', 'x') in flows
@@ -72,7 +73,7 @@ def test_ifc_ex2():
 
 
 def test_sql_injection():
-    vrs, flows = helper('sqlinject', 'Program', 'example')
+    vrs, flows, skips = helper('sqlinject', 'Program', 'example')
     assert vrs == ['query', 'request', 'sb1', 'sb2', 'user']
     assert ('request', 'user') in flows
     assert ('user', 'sb1') in flows
@@ -81,7 +82,7 @@ def test_sql_injection():
 
 
 def test_mvt_kernel():
-    vrs, flows = helper('mvt', 'Program', 'mvt')
+    vrs, flows, skips = helper('mvt', 'Program', 'mvt')
     assert vrs == 'A,N,i,j,x1,x2,y1,y2'.split(',')
     assert ('i', 'j') in flows
     assert ('N', 'j') in flows
@@ -96,13 +97,12 @@ def test_mvt_kernel():
     assert ('y1', 'x1') in flows
     assert ('y2', 'x2') in flows
     assert len(flows) == 13
+    assert not skips
 
 
 def test_local_scoping():
-    vrs, flows = helper(
-        'localscope', 'Program', 'example')
-    assert (set(vrs) == {
-        'a', 'b', 'c', 'x', 'y', 'z', 'i', 'i₂', 'i₃', 'j', 'j₂', 'j₃'})
+    vrs, flows, skips = helper('localscope', 'Program', 'example')
+    assert (set(vrs) == set('a,b,c,x,y,z,i,i₂,i₃,j,j₂,j₃'.split(',')))
     assert ('a', 'i') in flows
     assert ('a', 'j') in flows
     assert ('a', 'y') in flows
@@ -122,3 +122,14 @@ def test_local_scoping():
     assert ('x', 'z') in flows
     assert ('y', 'z') in flows
     assert len(flows) == 18
+
+
+def test_object_creation():
+    vrs, flows, skips = helper('objflow', 'Program', 'init')
+    assert (set(vrs) == set('MyClass₀,MyClass₁,a,b,x,y'.split(',')))
+    assert len(flows) == 4
+    assert len(skips) == 0
+    assert ('x', 'MyClass₀') in flows
+    assert ('MyClass₀', 'a') in flows
+    assert ('y', 'MyClass₁') in flows
+    assert ('MyClass₁', 'b') in flows

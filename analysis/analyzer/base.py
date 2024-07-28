@@ -110,7 +110,7 @@ class BaseVisitor(ABC):
         return input_stream.getText(start, stop)
 
     @staticmethod
-    def uniq_name(init: str, known: Iterable[str]) -> str:
+    def uniq_name(init: str, known: Iterable[str], start=2) -> str:
         """Find a unique replacement name for a variable.
 
         By "reverse pigeon-hole", this method always finds
@@ -121,11 +121,12 @@ class BaseVisitor(ABC):
         Arguments:
             init: initial name.
             known: list of known names.
+            start: initial offset.
 
         Returns:
             A new name that is not in the known names.
         """
-        for i in range(2, len(list(known)) + 2 + 1):
+        for i in range(start, len(list(known)) + start + 1):
             candidate = f'{init}{BaseVisitor.u_sub(i)}'
             if candidate not in known:
                 return candidate
