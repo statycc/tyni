@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import operator
-import sys
 from functools import reduce
 from itertools import product
 from typing import Optional, Union, List, Tuple
@@ -197,7 +196,11 @@ class ClassVisitor(ExtVisitor):
 
     @property
     def root(self) -> ClassVisitor:
-        """Gets the root-level ClassVisitor."""
+        """Gets the root-level ClassVisitor.
+
+        Returns:
+            The topmost ClassVisitor.
+        """
         top = self
         while top.parent:
             top = top.parent
@@ -214,14 +217,22 @@ class ClassVisitor(ExtVisitor):
         node.result[self.name] = data
 
     def to_result(self) -> ClassResult:
-        """Converts self to a ClassResult instance."""
+        """Converts self to a ClassResult instance.
+
+        Returns:
+            Current instance as a ClassResult.
+        """
         return ClassResult(self.name, self.result)
 
     # noinspection PyTypeChecker
     def visitClassDeclaration(
             self, ctx: JavaParser.ClassDeclarationContext
     ) -> None:
-        """Handler for visiting a class."""
+        """Handler for visiting a class.
+
+        Arguments:
+            ctx: arse-tree node of a Java class.
+        """
         self.name = self.hierarchy(ctx.identifier().getText())
         cv, body = ClassVisitor(parent=self), ExtVisitor.last(ctx)
         logger.debug(f'class: {self.name}')
@@ -230,7 +241,11 @@ class ClassVisitor(ExtVisitor):
     def visitMethodDeclaration(
             self, ctx: JavaParser.MethodDeclarationContext
     ) -> None:
-        """Handler for visiting a method."""
+        """Handler for visiting a method.
+
+        Arguments:
+            ctx: parse-tree node of a Java method.
+        """
         self.name = ctx.identifier().getText()
         h, c = self.hierarchy(self.name), self.og_text(ctx)
         logger.debug(f'method: {self.name}')
@@ -240,12 +255,13 @@ class ClassVisitor(ExtVisitor):
 
 
 class RecVisitor(ExtVisitor):
-    """Recursively process method body or its commands."""
 
     def __init__(self):
-        self.vars = set()  # all encountered variables
-        self.out_v = set()  # encountered out-variables
-        self.new_v = set()  # encountered declarations
+        """RecVisitor is a recursive analyzer for method body
+        and its sub-commands."""
+        self.vars: set[str] = set()  # all encountered variables
+        self.out_v: set[str] = set()  # encountered out-variables
+        self.new_v: set[str] = set()  # encountered declarations
         self.matrix: List[Tuple[str, str]] = []  # data flows (in, out)
         self.skips: List[str] = []  # omitted statements
 
@@ -255,10 +271,16 @@ class RecVisitor(ExtVisitor):
         return list(set(self.matrix))
 
     def skipped(self, ctx, desc: str = "") -> None:
+        """Handle un-processed command/expression.
+
+        Arguments:
+            ctx: parse tree context.
+            desc: optional description of the tree node.
+        """
         super().skipped(ctx, desc)
         self.skips += [BaseVisitor.og_text(ctx)]
 
-    def subst(self, old_: str, new_: str):
+    def subst(self, old_: str, new_: str) -> None:
         """Substitutes variable name in place.
 
         Arguments:
@@ -273,11 +295,13 @@ class RecVisitor(ExtVisitor):
         self.new_v = set(rename(self.new_v))
 
     @staticmethod
-    def merge(target: set, *args: set):
+    def merge(target: set[str], *args: set[str]):
+        """Combines two or more sets."""
         [target.update(m) for m in args]
 
     @staticmethod
-    def occurs(exp: JavaParser.ExpressionContext):
+    def occurs(exp: JavaParser.ExpressionContext) -> set[str]:
+        """Find all identifiers occurring in an expression."""
         return set(IdVisitor().visit(exp).vars)
 
     @staticmethod
