@@ -182,10 +182,9 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         """Constructor/method call pattern exp(…,…)."""
         if ctx.getChildCount() == 2:
             call = ExtVisitor.flatten(ctx.getChild(1))
-            return (((cn := call.getChildCount()) == 1 and
-                     call.getChild(0).getText() == '()') or
-                    ((cn >= 3 and call.getChild(0).getText() == '('
-                      and call.getChild(cn - 1).getText() == ')')))
+            return (((cn := call.getChildCount()) >= 2
+                     and call.getChild(0).getText() == '('
+                     and call.getChild(cn - 1).getText() == ')'))
         return False
 
 
@@ -425,38 +424,22 @@ class RecVisitor(ExtVisitor):
         elif cc == 1:
             return self.rvars(ctx.getChild(0))
 
-        # unary, new objects, method calls
+        # unary, new, method calls
         elif cc == 2:
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
-            # new object, array, etc.
-            if c1t == "new" and self.is_app(c2):  # new objects
-                # no cover for nested references
-                if len(ref := self.occurs(c2.getChild(0))) != 1:
-                    self.skipped(c2, 'new obj')
-                    return empty
-                # params flow through uniq object reference
-                ref = self.uniq_name(list(ref)[0], self.vars, 0)
-                params = self.flatten(c2.getChild(1)).getChild(1)
-                o_in = set(reduce(set.union, [
-                    self.rvars(p)[0] for p in map(
-                        params.getChild,
-                        range(0, params.getChildCount(), 2))], set()))
-                # merge constructor flows and variables
-                flows = self.assign(o_in, {ref})
-                self.merge(self.vars, o_in)
-                self.matrix = self.compose(self.matrix, flows)
-                logger.debug(f'R/obj: {", ".join(o_in)} → {ref}')
-                return {ref}, set()
-            if c1t == "new":  # new arrays, etc.
+            # new references
+            if c1t == "new" and self.is_app(c2):  # objects
+                return self.new_ref(c2)
+            if c1t == "new":  # arrays, etc.
                 return self.rvars(c2)
             # unary op
             if c1t in self.U_OP or c2t in self.U_OP:
                 id_node = c1 if c1t not in self.U_OP else c2
                 return self.rvars(id_node)
-            # application or parenthesized
+            # application and class
             if self.is_app(ctx):
-                self.skipped(ctx, 'call/block:')
+                self.skipped(ctx, 'r-call')
                 return empty
             # something else
             self.skipped(ctx, 'rvars-2')
@@ -471,6 +454,11 @@ class RecVisitor(ExtVisitor):
                 (il, ol) = self.rvars(child)
                 lc, rc = lc | il, rc | ol
             return lc, rc
+
+        # switch expression
+        elif ctx.getChild(0).getText() == "switch":
+            self.skipped(ctx, f'switch-exp')
+            return empty
 
         # binary and dot ops, blocks
         elif cc == 3:
@@ -499,14 +487,38 @@ class RecVisitor(ExtVisitor):
                     lc, rc = lc | il, rc | ol
                 return lc, rc
 
-        # switch expression
-        elif ctx.getChild(0).getText() == "switch":
-            self.skipped(ctx, f'switch-exp')
-            return empty
-
         # something else
         self.skipped(ctx, f'rvars-{cc}')
         return empty
+
+    def new_ref(self, ctx: JavaParser.ExpressionContext) \
+            -> Tuple[set[str], set[str]]:
+        """Finds variables in a new object constructor call.
+
+        Arguments:
+            ctx: is the parse-tree following the new keyword.
+
+        Returns:
+            The in-variables and out-variables of the expression.
+        """
+        # require non-nested/dot references
+        if len(ref := self.occurs(ctx.getChild(0))) != 1:
+            self.skipped(ctx, 'new obj')
+            return set(), set()
+        # params flow through a unique object reference
+        ref = self.uniq_name(list(ref)[0], self.vars, 0)
+        params = self.flatten(ctx.getChild(1)).getChild(1)
+        o_in = set(reduce(set.union, [
+            self.rvars(p)[0] for p in map(
+                params.getChild,
+                range(0, params.getChildCount(), 2))], set()))
+        # merge constructor flows and variables
+        if o_in:
+            flows = self.assign(o_in, {ref})
+            self.merge(self.vars, o_in)
+            self.matrix = self.compose(self.matrix, flows)
+            logger.debug(f'R/obj: {", ".join(o_in)} → {ref}')
+        return {ref}, set()
 
     def xvars(self, ctx: JavaParser.ExpressionContext) -> set[str]:
         """Find variables in an expression, with added knowledge that

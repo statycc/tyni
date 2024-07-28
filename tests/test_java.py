@@ -126,10 +126,12 @@ def test_local_scoping():
 
 def test_object_creation():
     vrs, flows, skips = helper('objflow', 'Program', 'init')
-    assert (set(vrs) == set('MyClass₀,MyClass₁,a,b,x,y'.split(',')))
-    assert len(flows) == 4
+    assert (set(vrs) == set(
+        'MyClass₀,MyClass₁,MyClass₂,a,b,c,x,y'.split(',')))
+    assert len(flows) == 5
     assert len(skips) == 0
     assert ('x', 'MyClass₀') in flows
     assert ('MyClass₀', 'a') in flows
     assert ('y', 'MyClass₁') in flows
     assert ('MyClass₁', 'b') in flows
+    assert ('MyClass₂', 'c') in flows

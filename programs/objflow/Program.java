@@ -6,6 +6,7 @@ class MyClass {
     public MyClass(String arg) {
         System.out.println(arg);
     }
+    public MyClass() { }
 }
 
 public class Program {
@@ -18,5 +19,6 @@ public class Program {
     static protected void init(String x, String y) {
         MyClass a = new MyClass(x);
         MyClass b = new MyClass(y);
+        MyClass c = new MyClass();
     }
 }
