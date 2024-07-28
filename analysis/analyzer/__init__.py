@@ -1,7 +1,7 @@
 from typing import Optional, Type
 
 # flake8: noqa: F401
-from .base import AbstractAnalyzer, BaseVisitor
+from .base import AbstractAnalyzer, BaseVisitor, FLOW_T
 from .java import JavaAnalyzer
 from .json import JsonLoader
 

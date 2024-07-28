@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Iterable
+from typing import List, Tuple, Optional, Iterable
 
 from analysis import Result, Timeable, AnalysisResult, Colors
 
 logger = logging.getLogger(__name__)
+
+FLOW_T = List[Tuple[str, str]]
+"""Type of data flow-pairs."""
 
 
 class AbstractAnalyzer(ABC):

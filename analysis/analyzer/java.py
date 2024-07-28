@@ -10,7 +10,7 @@ from antlr4 import FileStream, CommonTokenStream
 
 from analysis import AnalysisResult, ClassResult, MethodResult, Timeable
 from analysis.parser import JavaLexer, JavaParser, JavaParserVisitor
-from . import AbstractAnalyzer, BaseVisitor
+from . import AbstractAnalyzer, BaseVisitor, FLOW_T
 
 logger = logging.getLogger(__name__)
 
@@ -262,15 +262,16 @@ class RecVisitor(ExtVisitor):
         self.vars: set[str] = set()  # all encountered variables
         self.out_v: set[str] = set()  # encountered out-variables
         self.new_v: set[str] = set()  # encountered declarations
-        self.matrix: List[Tuple[str, str]] = []  # data flows (in, out)
+        self.matrix: FLOW_T = []  # data flows (in, out)
         self.skips: List[str] = []  # omitted statements
 
     @property
-    def flows(self) -> List[Tuple[str, str]]:
+    def flows(self) -> FLOW_T:
         """Unique flow pairs."""
         return list(set(self.matrix))
 
-    def skipped(self, ctx, desc: str = "") -> None:
+    def skipped(self, ctx: JavaParser.compilationUnit,
+                desc: str = "") -> None:
         """Handle un-processed command/expression.
 
         Arguments:
@@ -295,8 +296,9 @@ class RecVisitor(ExtVisitor):
         self.new_v = set(rename(self.new_v))
 
     @staticmethod
-    def merge(target: set[str], *args: set[str]):
-        """Combines two or more sets."""
+    def merge(target: set[str], *args: set[str]) -> None:
+        """Combines two or more set; operationally this is a
+        set-union, but target is modified in place."""
         [target.update(m) for m in args]
 
     @staticmethod
@@ -305,16 +307,28 @@ class RecVisitor(ExtVisitor):
         return set(IdVisitor().visit(exp).vars)
 
     @staticmethod
-    def compose(m1, *args):
+    def compose(m1: FLOW_T, *args: FLOW_T) -> FLOW_T:
+        """Compose two or more matrices. Internally, since
+        matrix is a list, this is just list addition.
+
+        Arguments:
+            m1: matrix of data flows
+            args: additional matrices
+
+        Returns:
+            Composed matrix.
+        """
         return reduce(operator.add, args, m1)
 
     @staticmethod
-    def assign(in_v, out_v):
+    def assign(in_v: set[str], out_v: set[str]) -> FLOW_T:
+        """Generate data-flow pairs from an assignment."""
         return list(filter(
             lambda x: x[0] != x[1], product(in_v, out_v)))
 
     @staticmethod
-    def correction(occ, out):
+    def correction(occ: set[str], out: set[str]) -> FLOW_T:
+        """Get correction data-flows."""
         return RecVisitor.assign(occ, out)
 
     def lvars(self, ctx: JavaParser.ExpressionContext) \
@@ -322,8 +336,11 @@ class RecVisitor(ExtVisitor):
         """Find variables in an expression, with added knowledge that
         expression occurs on left-side of assignment -or- in isolation.
 
+        Arguments:
+            ctx: parse tree node to analyze.
+
         Returns:
-            A pair of <in-variables, out-variables>
+            A pair of <in-variables, out-variables>.
         """
         if (cc := ctx.getChildCount()) == 0:
             return set(), set()
@@ -356,7 +373,8 @@ class RecVisitor(ExtVisitor):
         self.skipped(ctx)
         return set(), set()
 
-    def rvars(self, ctx: JavaParser.ExpressionContext) -> set[str]:
+    def rvars(self, ctx: JavaParser.ExpressionContext) \
+            -> Tuple[set[str], set[str]]:
         """Find variables in an expression, with added knowledge that
         expression occurs on right-side of assignment.
 
@@ -368,16 +386,16 @@ class RecVisitor(ExtVisitor):
         returns, can have both in and out behavior, maybe.)
 
         Returns:
-            Set of in-variables.
+            <in-variables, out-variables>
         """
 
         def default_handler():
             if in_v := RecVisitor.occurs(ctx):
                 logger.debug(f'R/in:  {", ".join(in_v)}')
-            return in_v
+            return in_v, set()
 
         if (cc := ctx.getChildCount()) == 0:
-            return set()
+            return set(), set()
 
         elif cc == 1:  # terminal identifiers, constants
             if ctx.getChild(0).getChildCount() == 0:
@@ -401,13 +419,14 @@ class RecVisitor(ExtVisitor):
                     c2.getChild(0).getText() == '(' and
                     c2.getChild(cn - 1).getText() == ')'):
                 self.skipped(ctx, 'call/block:')
-                return set()
+                return set(), set()
             # array exp/initialization
             if (cn >= 3 and c2.getChild(0).getText() == '[' and
                     (c2.getChild(cn - 1).getText() == ']' or
                      c2.getChild(cn - 2).getText() == ']')):
-                return self.rvars(c1) | set(reduce(set.union, map(
-                    self.rvars, c2.children)))
+                c1v, _ = self.rvars(c1)
+                c2v = [n[0] for n in map(self.rvars, c2.children)]
+                return c1v | set(reduce(set.union, c2v)), set()
 
             # something else
             self.skipped(ctx, 'rvars-2')
@@ -415,15 +434,18 @@ class RecVisitor(ExtVisitor):
 
         elif self.is_array_init(ctx):
             chd = map(ctx.getChild, range(1, cc, 2))
-            return set(reduce(set.union, map(self.rvars, chd)))
+            c2v = [n[0] for n in map(self.rvars, chd)]
+            return set(reduce(set.union, c2v)), set()
 
         elif cc == 3:  # binary ops
             lc, op, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             if (opt := op.getText()) == ".":
                 self.skipped(ctx, 'dot-op')
-                return set()
+                return set(), set()
             elif opt in self.OP:
-                return self.rvars(lc) | self.rvars(rc)
+                cl, _ = self.rvars(lc)
+                cr, _ = self.rvars(rc)
+                return cl | cr, set()
             # block statement
             elif lc.getText() == '(' and rc.getText() == ')':
                 return self.rvars(op)
@@ -435,14 +457,13 @@ class RecVisitor(ExtVisitor):
             c0, c1, c2, c3, c4 = [ctx.getChild(n) for n in range(5)]
             # ternary operation
             if c1.getText() == "?" and c3.getText() == ":":
-                return self.rvars(c0) | self.rvars(c2) | self.rvars(c4)
+                c2v = [n[0] for n in map(self.rvars, [c0, c2, c4])]
+                return set(reduce(set.union, c2v)), set()
 
         if ctx.getChild(0).getText() == "switch":  # switch expression
-            # TODO: can there be new out vars?
-            #   Yes, e.g. a switch expression
             vst = RecVisitor().visit(ctx)
             logger.debug(f'R/in:  {", ".join(vst.vars)}')
-            return vst.vars
+            return vst.vars, set()
 
         if RecVisitor.is_array_exp(ctx):  # array accesses
             return default_handler()
@@ -481,7 +502,7 @@ class RecVisitor(ExtVisitor):
             self.merge(self.new_v, out_v)
             # decl with initialization
             if cc == 3 and ctx.getChild(1).getText() == '=':
-                in_v = self.rvars(ctx.getChild(2))
+                in_v, _ = self.rvars(ctx.getChild(2))
                 self.merge(self.vars, in_v)
                 self.merge(self.out_v, out_v)
                 flows = self.assign(in_v, out_v)
@@ -546,7 +567,7 @@ class RecVisitor(ExtVisitor):
                     .split(','):
                 logger.debug(f'bop: {ctx.getText()}')
                 in_l, out_v = self.lvars(lc)
-                in_v = self.rvars(rc)
+                in_v, _ = self.rvars(rc)
                 self.merge(self.vars, out_v, in_v, in_l)
                 self.merge(self.out_v, out_v)
                 flows = self.compose(
