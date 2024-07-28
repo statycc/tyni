@@ -459,8 +459,8 @@ class RecVisitor(ExtVisitor):
                 self.skipped(ctx, 'call/block:')
                 return empty
             # something else
-            (il, ol), (ir, o_r) = self.rvars(c1), self.rvars(c2)
-            return (il | ir), (ol | o_r)
+            self.skipped(ctx, 'rvars-2')
+            return empty
 
         # array exp/access/init pattern
         elif self.is_array_exp(ctx) \
