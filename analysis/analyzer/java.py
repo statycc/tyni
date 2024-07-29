@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import operator
+import sys
 from functools import reduce
 from itertools import product
 from typing import Optional, Union, List, Tuple
@@ -66,9 +67,11 @@ class JavaAnalyzer(AbstractAnalyzer):
         stream = CommonTokenStream(lexer)
         parser = JavaParser(stream)
         t.stop() if t else None
-        assert parser.getNumberOfSyntaxErrors() == 0
-        logger.debug("parsed successfully")
         self.tree = parser.compilationUnit()
+        if parser.getNumberOfSyntaxErrors() > 0:
+            logger.fatal("input syntax is invalid")
+            sys.exit(1)
+        logger.debug("parsed successfully")
         return self
 
     def analyze(self, t: Optional[Timeable] = None) -> JavaAnalyzer:
@@ -133,9 +136,8 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
 
     @staticmethod
     def is_array_exp(ctx: JavaParser.compilationUnit) -> bool:
-        """Match array init and access patterns:
-           1) identifier? ('[' ']')+
-           2) identifier? ('[' expression ']')+ ('[' ']')*
+        """Match array access patterns, but not init:
+           identifier ('[' expression ']')+
 
         Arguments:
             ctx: parse tree compilation unit.
@@ -143,6 +145,7 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
         Returns:
             True if the context matches pattern.
         """
+        # TODO: restrict
         # need at minimum two children '[' and ']'
         if (cc := ctx.getChildCount()) >= 2:
             # drop first if not lbracket
@@ -171,19 +174,13 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
 
     @staticmethod
     def is_array_init(ctx: JavaParser.compilationUnit) -> bool:
-        """Array initialization pattern exp? []* {…,…,…}."""
-        res = False
-        if (cc := ctx.getChildCount()) == 2:
-            # 0: exp   1: []* { …, …, … }
-            init = ExtVisitor.last(ctx.getChild(1))
-            if init and init.getChildCount() > 0:
-                res = (init.getChild(0).getText() == '{' and
-                       ExtVisitor.last(init).getText() == '}' and
-                       ArrayInitializerVisitor().visit(ctx).match)
-        return res or (
-                cc >= 2 and ctx.getChild(0).getText() == '{'
-                and ctx.getChild(cc - 1).getText() == '}'
-                and ArrayInitializerVisitor().visit(ctx).match)
+        """True if ctx _contains_ an array initialization pattern:
+        * ('[' ']')+ arrayInitializer
+        * ('[' expression ']')+ ('[' ']')*
+        * '{' (variableInitializer (',' variableInitializer)* ','?)? '}'
+        Since this is a contains check, a leading identifier is allowed.
+        """
+        return ArrayInitializerVisitor().visit(ctx).match
 
     @staticmethod
     def is_app(ctx: JavaParser.compilationUnit) -> bool:
@@ -449,9 +446,7 @@ class RecVisitor(ExtVisitor):
             # new references
             if c1t == "new" and self.is_app(c2):  # objects
                 return self.new_ref(c2)
-            if (c1t == "new" and (
-                    self.is_array_exp(c2) or
-                    self.is_array_init(c2))):  # arrays
+            if c1t == "new" and self.is_array_init(c2):  # arrays
                 return rec_children(c2.children)
             if c1t == "new":  # other creators
                 return skip(f'new')
@@ -779,6 +774,9 @@ class ArrayInitializerVisitor(ExtVisitor):
     def __init__(self):
         self.match = False
 
-    def visitArrayInitializer(
-            self, ctx: JavaParser.ArrayInitializerContext):
+    def visitArrayCreatorRest(
+            self, ctx: JavaParser.ArrayCreatorRestContext):
+        self.match = True
+
+    def visitArrayInitializer(self, ctx:JavaParser.ArrayInitializerContext):
         self.match = True

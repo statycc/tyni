@@ -10,20 +10,24 @@ A static analyzer of data confidentiality issues, implementing our information f
 4. Evaluate the matrix against security policy and security classes using a solver.
 
 ```
-[input].java
-                                 ─┐                     
-1. generate parse-tree            │ ❶ parsing  by ANTLR
-                                 ─┤
-2. gather matrix data             │ ❷ data-flow analysis by IRC calculus
-                                 ─┤
-3. evaluate matrix data           │ ❸ evaluation by solver
-                                 ─┘
-==> out: interesting info about input program
+                        [input].java
+                               ↓
+╔──── the analyzer ───────────────────────────────────────────────────╗
+│                             ─┐                                      │ 
+│  1. generate parse-tree      │ parsing by ANTLR parser              │
+│                             ─┤                                      │
+│  2. gather matrix data       │ data-flow analysis by IRC calculus   │
+│                             ─┤                                      │
+│  3. evaluate matrix data     │ evaluation by solver                 │
+│                             ─┘                                      │
+╚─────────────────────────────────────────────────────────────────────╝
+                               ↓
+        information about data confidentiality of the input program                              
 ```
 
 ## Interpreting analyzer results
 
-The analyzer captures input file details, data flow details, and timing information,
+The analyzer captures details of the input file, data-flow facts, and timing information;
 including for each method:
 
 ```
@@ -36,7 +40,8 @@ skips              : Uncovered program statements, if any
 ```
 
 * The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.
-* If a method includes statements the analyzer does not recognize, for practical reasons these statements are skipped, but there is no guarantee of correctness for such a method.
+* We can only make judgments for methods with full syntax coverage, otherwise the results are inconclusive.
+* If a method includes uncovered statements, for practical reasons these statements are omitted by the analyzer, and highlighted.
 * To inspect all captured data, save the result to a file. 
 * The full details of results gathered by the analyzer are in [`analysis/result`](analysis/result.py). 
 
