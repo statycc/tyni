@@ -1,6 +1,6 @@
 # Non-interference analyzer 
 
-A static analyzer implementing our information flow calculus (work in progress).
+A static analyzer of data confidentiality issues, implementing our information flow calculus (work in progress).
 
 ## How it works
 
@@ -14,9 +14,9 @@ A static analyzer implementing our information flow calculus (work in progress).
                                  ─┐                     
 1. generate parse-tree            │ ❶ parsing  by ANTLR
                                  ─┤
-2. gather matrix data             │ ❷ analysis by IRC calculus
+2. gather matrix data             │ ❷ data-flow analysis by IRC calculus
                                  ─┤
-3. evaluate matrix data           │ ❸ evaluation by Solver
+3. evaluate matrix data           │ ❸ evaluation by solver
                                  ─┘
 ==> out: interesting info about input program
 ```
@@ -38,10 +38,10 @@ skips              : Uncovered program statements, if any
 * The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.
 * If a method includes statements the analyzer does not recognize, for practical reasons these statements are skipped, but there is no guarantee of correctness for such a method.
 * To inspect all captured data, save the result to a file. 
-* The full details of results gathered by the analyzer are in `analysis/result.py`. 
+* The full details of results gathered by the analyzer are in [`analysis/result`](analysis/result.py). 
 
 
-## Getting Started
+## Getting started
 
 
 1. **Install dependencies**
@@ -59,11 +59,13 @@ skips              : Uncovered program statements, if any
    python3 -m analysis [input program] {optional args}
    ```
 
-   For example
+   The `programs/` directory contains various example-inputs, for example:
 
    ```
    python3 -m analysis programs/ifcprog1/Program.java --save
    ```
+   
+   
 
 3. **For help**, and for a full list of available arguments, run
 
@@ -71,24 +73,27 @@ skips              : Uncovered program statements, if any
    python3 -m analysis
    ```
 
-**Analyze and evaluate separately.**
+4. **Other uses**
 
-It is possible to run analysis and evaluation separately.
-This allows to evaluate the same program against different security policies, without repeating the prior steps.
+   <details><summary>Analyze and evaluate separately</summary>
+  
+    Use this strategy to evaluate the same program against different security policies, without repeating the prior steps.
+    
+    First, parse and analyze a program, and save the (intermediate) result to a file. 
+    
+    ```
+    python3 -m analysis programs/ifcprog1/Program.java --run A --out result.json
+    ```
+    
+    Then, give the prior result as input to the analyzer:
+    
+    ```
+    python3 -m analysis result.json 
+    ```
+    
+    </details>
 
-First, parse and analyze a program, and save the result to a file. 
-
-```
-python3 -m analysis programs/ifcprog1/Program.java --run A --out result.json
-```
-
-Then, give the prior result as input to the analyzer.
-
-```
-python3 -m analysis result.json 
-```
-
-## Development
+## Development notes
 
 **About design choices**
 
@@ -101,7 +106,7 @@ python3 -m analysis result.json
   * Analyzer implementation freedom: can choose any ANTLR target language.
   * Adding OOP concepts later should be implementationally straightforward.
   * Immediately have a precise documented specification of supported inputs.
-  * See list of available [grammars](https://github.com/antlr/grammars-v4) if this is of interest.
+  * See list of all available [grammars](https://github.com/antlr/grammars-v4) if this is of interest.
 * Everything done here should be doable in compiler IR.
   * Parse tree has more information than necessary; the analysis could do with less.
   * Current design makes the analyzer light and isolated for simplicity.
@@ -143,14 +148,14 @@ make help     # lists other available commands
   Run `./setup.sh` for easy dev-setup.
 
 * The analyzer expects input in high-level input language, i.e., a `.java` file.
-  It is not necessary to compile the java programs, _but_,
+  It is not necessary to compile the java programs, but
 
   * Bytecode may be interesting, so there are commands to generate bytecode.
   
   * The parser is more generous than a compiler, and will parse invalid 
-    expressions. To make sure input programs are _actually valid_, 
+    expressions. To make sure input programs are actually valid, 
     running them through a compiler is a useful sanity check.
 
 * It is also not necessary to rebuild the parser; it is already built. 
-  But it is easy to rebuild, if necessary, with ANTLR and the Makefile commands.
+  But can be rebuilt with the Makefile commands.
 
