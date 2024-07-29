@@ -142,7 +142,7 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
 
         Returns:
             True if the context matches pattern.
-       """
+        """
         # need at minimum two children '[' and ']'
         if (cc := ctx.getChildCount()) >= 2:
             # drop first if not lbracket
@@ -171,11 +171,19 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
 
     @staticmethod
     def is_array_init(ctx: JavaParser.compilationUnit) -> bool:
-        """Array initialization pattern {…,…,…}."""
-        return ((cc := ctx.getChildCount()) > 1 and
-                ctx.getChild(0).getText() == '{' and
-                ctx.getChild(cc - 1).getText() == '}' and
-                ArrayInitializerVisitor().visit(ctx).match)
+        """Array initialization pattern exp? []* {…,…,…}."""
+        res = False
+        if (cc := ctx.getChildCount()) == 2:
+            # 0: exp   1: []* { …, …, … }
+            init = ExtVisitor.last(ctx.getChild(1))
+            if init and init.getChildCount() > 0:
+                res = (init.getChild(0).getText() == '{' and
+                       ExtVisitor.last(init).getText() == '}' and
+                       ArrayInitializerVisitor().visit(ctx).match)
+        return res or (
+                cc >= 2 and ctx.getChild(0).getText() == '{'
+                and ctx.getChild(cc - 1).getText() == '}'
+                and ArrayInitializerVisitor().visit(ctx).match)
 
     @staticmethod
     def is_app(ctx: JavaParser.compilationUnit) -> bool:
@@ -410,18 +418,28 @@ class RecVisitor(ExtVisitor):
         Returns:
             <in-variables, out-variables>
         """
-        empty = set(), set()
+
+        def skip(details):
+            self.skipped(ctx, details)
+            return set(), set()
 
         def default_handler():
             if in_v := RecVisitor.occurs(ctx):
                 logger.debug(f'R/in:  {", ".join(in_v)}')
             return in_v, set()
 
-        if (cc := ctx.getChildCount()) == 0:
-            return empty
-        elif cc == 1 and ctx.getChild(0).getChildCount() == 0:
+        def rec_children(cl):
+            lf, rt = set(), set()
+            for child in cl:
+                (il, ol) = self.rvars(child)
+                lf, rt = lf | il, rt | ol
+            return lf, rt
+
+        if (cc := ctx.getChildCount()) == 0:  # empty
+            return set(), set()
+        elif cc == 1 and ctx.getChild(0).getChildCount() == 0:  # term
             return default_handler()
-        elif cc == 1:
+        elif cc == 1:  # recurse
             return self.rvars(ctx.getChild(0))
 
         # unary, new, method calls
@@ -431,65 +449,51 @@ class RecVisitor(ExtVisitor):
             # new references
             if c1t == "new" and self.is_app(c2):  # objects
                 return self.new_ref(c2)
-            if c1t == "new":  # arrays, etc.
-                return self.rvars(c2)
+            if (c1t == "new" and (
+                    self.is_array_exp(c2) or
+                    self.is_array_init(c2))):  # arrays
+                return rec_children(c2.children)
+            if c1t == "new":  # other creators
+                return skip(f'new')
             # unary op
             if c1t in self.U_OP or c2t in self.U_OP:
                 id_node = c1 if c1t not in self.U_OP else c2
                 return self.rvars(id_node)
             # application and class
             if self.is_app(ctx):
-                self.skipped(ctx, 'r-call')
-                return empty
+                return skip('r-call')
             # something else
-            self.skipped(ctx, 'rvars-2')
-            return empty
+            return skip('rvars-2')
 
         # array exp/access/init pattern
-        elif self.is_array_exp(ctx) \
-                or self.is_array_init(ctx) \
-                or self.is_array_init(self.last(ctx)):
-            lc, rc = set(), set()
-            for child in ctx.children:
-                (il, ol) = self.rvars(child)
-                lc, rc = lc | il, rc | ol
-            return lc, rc
+        elif self.is_array_exp(ctx) or self.is_array_init(ctx):
+            return rec_children(ctx.children)
 
         # switch expression
         elif ctx.getChild(0).getText() == "switch":
-            self.skipped(ctx, f'switch-exp')
-            return empty
+            return skip(f'switch-exp')
 
         # binary and dot ops, blocks
         elif cc == 3:
-            lc, op, rc = [ctx.getChild(n) for n in [0, 1, 2]]
+            lc, op, rc = map(ctx.getChild, range(3))
             if (opt := op.getText()) == ".":
-                self.skipped(ctx, 'dot-op')
-                return empty
+                return skip('dot-op')
             elif opt in self.OP:
-                il, ol = self.rvars(lc)
-                ir, o_r = self.rvars(rc)
-                return il | ir, ol | o_r
+                # bin op => recurse operands
+                return rec_children([lc, rc])
             # block statement
             elif lc.getText() == '(' and rc.getText() == ')':
                 return self.rvars(op)
             # something else
-            self.skipped(ctx, 'rvars-3')
-            return empty
+            return skip('rvars-3')
 
-        # ternary operation
-        elif cc == 5:
-            c0, c1, c2, c3, c4 = map(ctx.getChild, range(5))
-            if c1.getText() == "?" and c3.getText() == ":":
-                lc, rc = set(), set()
-                for child in [c0, c2, c4]:
-                    (il, ol) = self.rvars(child)
-                    lc, rc = lc | il, rc | ol
-                return lc, rc
+        # ternary operator
+        elif cc == 5 and ctx.getChild(1).getText() == "?" \
+                and ctx.getChild(3).getText() == ":":
+            return rec_children(map(ctx.getChild, [0, 2, 4]))
 
         # something else
-        self.skipped(ctx, f'rvars-{cc}')
-        return empty
+        return skip(f'rvars-{cc}')
 
     def new_ref(self, ctx: JavaParser.ExpressionContext) \
             -> Tuple[set[str], set[str]]:
