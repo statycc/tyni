@@ -49,10 +49,10 @@ ptest: $(P_DIR)
 	@$(foreach p, $(PROGS), echo "PARSE $(p)" && python3 -m $(ANALYZER) $(p) -r p -l 0 ; )
 
 test:
-	pytest --cov=$(ANALYZER) tests --show-capture=no
+	pytest --cov-config=.coveragerc --cov=$(ANALYZER) tests --show-capture=no
 
 missing:
-	pytest --cov=$(ANALYZER) tests --show-capture=no --cov-report term-missing:skip-covered
+	pytest --cov-config=.coveragerc --cov=$(ANALYZER) tests --show-capture=no --cov-report term-missing:skip-covered
 
 lint:
 	flake8 $(ANALYZER) --count --show-source --statistics --exclude "$(ANALYZER)/parser"

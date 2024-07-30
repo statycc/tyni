@@ -17,6 +17,7 @@ def test_ifc_prog1():
     assert ('z', 'x') in flows
     assert ('z', 'y') in flows
     assert len(flows) == 4
+    assert all(x.startswith('System.out.println') for x in skips)
 
 
 def test_ifc_prog2a():
@@ -26,6 +27,7 @@ def test_ifc_prog2a():
     assert ('y', 'x') in flows
     assert ('y', 'z') in flows
     assert len(flows) == 3
+    assert all(x.startswith('System.out.println') for x in skips)
 
 
 def test_ifc_prog2b():
@@ -38,6 +40,7 @@ def test_ifc_prog2b():
     assert ('x', 'w') in flows
     assert ('y', 'x') in flows
     assert len(flows) == 6
+    assert all(x.startswith('System.out.println') for x in skips)
 
 
 def test_ifc_prog3():
@@ -62,6 +65,7 @@ def test_ifc_ex1():
     assert ('y', 'z') in flows
     assert ('z', 'y') in flows
     assert len(flows) == 3
+    assert all(x.startswith('System.out.println') for x in skips)
 
 
 def test_ifc_ex2():
@@ -70,6 +74,7 @@ def test_ifc_ex2():
     assert ('y', 'x') in flows
     assert ('z', 'x') in flows
     assert len(flows) == 2
+    assert all(x.startswith('System.out.println') for x in skips)
 
 
 def test_sql_injection():
@@ -79,6 +84,7 @@ def test_sql_injection():
     assert ('user', 'sb1') in flows
     assert ('sb2', 'query') in flows
     assert len(flows) == 3
+    assert skips == ['System.out.println(query)']
 
 
 def test_mvt_kernel():
@@ -122,16 +128,17 @@ def test_local_scoping():
     assert ('x', 'z') in flows
     assert ('y', 'z') in flows
     assert len(flows) == 18
+    assert skips == ['return z;']
 
 
 def test_object_creation():
     vrs, flows, skips = helper('objflow', 'Program', 'init')
     assert (set(vrs) == set(
         'MyClass₀,MyClass₁,MyClass₂,a,b,c,x,y'.split(',')))
-    assert len(flows) == 5
-    assert len(skips) == 0
     assert ('x', 'MyClass₀') in flows
     assert ('MyClass₀', 'a') in flows
     assert ('y', 'MyClass₁') in flows
     assert ('MyClass₁', 'b') in flows
     assert ('MyClass₂', 'c') in flows
+    assert len(flows) == 5
+    assert not skips

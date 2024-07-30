@@ -10,18 +10,18 @@ A static analyzer of data confidentiality issues, implementing our information f
 4. Evaluate the matrix against security policy and security classes using a solver.
 
 ```
-                        [input].java
-                               ↓
-╔──── the analyzer ───────────────────────────────────────────────────╗
-│                             ─┐                                      │ 
-│  1. generate parse-tree      │ parsing by ANTLR parser              │
-│                             ─┤                                      │
-│  2. gather matrix data       │ data-flow analysis by IRC calculus   │
-│                             ─┤                                      │
-│  3. evaluate matrix data     │ evaluation by solver                 │
-│                             ─┘                                      │
-╚─────────────────────────────────────────────────────────────────────╝
-                               ↓
+                            [input].java
+                                   ↓
+╔──── the analyzer ─────────────────────────────────────────────────╗
+│                                                                   │ 
+│  1. generate parse-tree   // parsing by ANTLR parser              │
+│                                                                   │
+│  2. gather matrix data    // data-flow analysis by IRC calculus   │
+│                                                                   │
+│  3. evaluate matrix data  // evaluation by solver                 │
+│                                                                   │
+╚───────────────────────────────────────────────────────────────────╝
+                                   ↓
         information about data confidentiality of the input program                              
 ```
 
@@ -31,7 +31,7 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
 including for each method:
 
 ```
-name               : Full name, class.method
+name               : Fully qualified name
 variables          : Encountered variables, see note below               
 flows              : Interfering variable pairs (in, out)    
 satisfiability     : Solver outcome SAT/UNSAT                 

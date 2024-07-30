@@ -130,67 +130,60 @@ class ExtVisitor(BaseVisitor, JavaParserVisitor):
     @staticmethod
     def flatten(ctx: JavaParser.compilationUnit) \
             -> JavaParser.compilationUnit:
+        """If a tree node is a singleton, step into its child.
+
+        Arguments:
+            ctx: parse tree context.
+
+        Returns:
+            The first node where number of children <> 1.
+        """
         while ctx.getChildCount() == 1:
             ctx = ctx.getChild(0)
         return ctx
 
     @staticmethod
     def is_array_exp(ctx: JavaParser.compilationUnit) -> bool:
-        """Match array access patterns, but not init:
-           identifier ('[' expression ']')+
-
-        Arguments:
-            ctx: parse tree compilation unit.
-
-        Returns:
-            True if the context matches pattern.
+        """Match array access expression (but not init) pattern:
+           expression '[' expression ']'.
+           The pattern can be recursive (on left exp.) for
+           multidimensional arrays.
         """
-        # TODO: restrict
-        # need at minimum two children '[' and ']'
-        if (cc := ctx.getChildCount()) >= 2:
-            # drop first if not lbracket
-            start = 0 if ctx.getChild(0).getText() == "[" else 1
-            nodes = [ctx.getChild(i).getText()
-                     for i in range(start, cc)]
-            # basic pattern check
-            if ((n := len(nodes)) < 2 or nodes[0] != '['
-                    or nodes[-1] != ']'):
-                return False
-            # chunk nodes into len-3 triples
-            exps = [nodes[(i * 3):(i * 3) + 3]
-                    for i in range(0, n // 3)]
-            # head is brackets containing expressions
-            # => find first index where above is false
-            split_idx = next(
-                (i * 3 for (i, (l, _, r))
-                 in enumerate(exps)
-                 if (l, r) != ('[', ']')), n)
-            # remaining tail, if any, must be [ ]-pairs
-            pairs = nodes[split_idx:]
-            return (len(pairs) % 2 == 0 and
-                    all([node == ('[' if i % 2 == 0 else ']')
-                         for i, node in enumerate(pairs)]))
+        if ctx.getChildCount() == 4:
+            exp, lb, _, rb = map(ctx.getChild, range(4))
+            if lb.getText() == '[' and rb.getText() == ']':
+                if exp.getChildCount() == 4:
+                    return ExtVisitor.is_array_exp(exp)
+                return exp.getChildCount() == 1
         return False
 
     @staticmethod
     def is_array_init(ctx: JavaParser.compilationUnit) -> bool:
-        """True if ctx _contains_ an array initialization pattern:
-        * ('[' ']')+ arrayInitializer
-        * ('[' expression ']')+ ('[' ']')*
-        * '{' (variableInitializer (',' variableInitializer)* ','?)? '}'
-        Since this is a contains check, a leading identifier is allowed.
+        """Check if ctx contains an array initialization pattern:
+
+        1)  ('[' ']')+ arrayInitializer
+        2)  ('[' expression ']')+ ('[' ']')*
+        3)  '{' (varInitializer (',' varInitializer)* ','?)? '}'
+
+        Since this is a contains, a leading identifier is allowed.
         """
         return ArrayInitializerVisitor().visit(ctx).match
 
     @staticmethod
+    def is_array(ctx: JavaParser.compilationUnit) -> bool:
+        return ExtVisitor.is_array_exp(ctx) or \
+               RecVisitor.is_array_init(ctx)
+
+    @staticmethod
     def is_app(ctx: JavaParser.compilationUnit) -> bool:
         """Constructor/method call pattern exp(…,…)."""
-        if ctx.getChildCount() == 2:
+        if (cc := ctx.getChildCount()) == 2:
             call = ExtVisitor.flatten(ctx.getChild(1))
             return (((cn := call.getChildCount()) >= 2
                      and call.getChild(0).getText() == '('
                      and call.getChild(cn - 1).getText() == ')'))
-        return False
+        return (cc > 2 and ExtVisitor.last(ctx) == ')' and
+                ExtVisitor.last(ctx, 3) == '(')
 
 
 class ClassVisitor(ExtVisitor):
@@ -284,8 +277,7 @@ class ClassVisitor(ExtVisitor):
 class RecVisitor(ExtVisitor):
 
     def __init__(self):
-        """RecVisitor is a recursive analyzer for method body
-        and its sub-commands."""
+        """A recursive analyzer for method body and its commands."""
         self.vars: set[str] = set()  # all encountered variables
         self.out_v: set[str] = set()  # encountered out-variables
         self.new_v: set[str] = set()  # encountered declarations
@@ -331,7 +323,7 @@ class RecVisitor(ExtVisitor):
     @staticmethod
     def occurs(exp: JavaParser.ExpressionContext) -> set[str]:
         """Find all identifiers occurring in an expression."""
-        return set(IdVisitor().visit(exp).vars)
+        return IdVisitor().visit(exp).vars
 
     @staticmethod
     def compose(m1: FLOW_T, *args: FLOW_T) -> FLOW_T:
@@ -439,16 +431,17 @@ class RecVisitor(ExtVisitor):
         elif cc == 1:  # recurse
             return self.rvars(ctx.getChild(0))
 
-        # unary, new, method calls
-        elif cc == 2:
+        elif cc == 2:  # unary, new, method calls
             c1, c2 = ctx.getChild(0), ctx.getChild(1)
             c1t, c2t = [x.getText() for x in (c1, c2)]
             # new references
-            if c1t == "new" and self.is_app(c2):  # objects
-                return self.new_ref(c2)
-            if c1t == "new" and self.is_array_init(c2):  # arrays
-                return rec_children(c2.children)
-            if c1t == "new":  # other creators
+            if c1t == "new":
+                if self.is_array_init(c2):  # arrays
+                    return rec_children(c2.children)
+                # objects + collections<>()
+                elif self.is_app(c2):
+                    return self.new_ref(c2)
+                # if above pattern matches fail
                 return skip(f'new')
             # unary op
             if c1t in self.U_OP or c2t in self.U_OP:
@@ -460,16 +453,10 @@ class RecVisitor(ExtVisitor):
             # something else
             return skip('rvars-2')
 
-        # array exp/access/init pattern
-        elif self.is_array_exp(ctx) or self.is_array_init(ctx):
+        elif self.is_array(ctx):  # (cc ≥3)
             return rec_children(ctx.children)
 
-        # switch expression
-        elif ctx.getChild(0).getText() == "switch":
-            return skip(f'switch-exp')
-
-        # binary and dot ops, blocks
-        elif cc == 3:
+        elif cc == 3:  # binary/dot ops; parenthesized blocks
             lc, op, rc = map(ctx.getChild, range(3))
             if (opt := op.getText()) == ".":
                 return skip('dot-op')
@@ -487,6 +474,11 @@ class RecVisitor(ExtVisitor):
                 and ctx.getChild(3).getText() == ":":
             return rec_children(map(ctx.getChild, [0, 2, 4]))
 
+        # switch expression (cc ≥7)
+        # this is a scoped and can create in and out flows.
+        elif ctx.getChild(0).getText() == "switch":
+            return skip(f'switch-exp')
+
         # something else
         return skip(f'rvars-{cc}')
 
@@ -500,10 +492,13 @@ class RecVisitor(ExtVisitor):
         Returns:
             The in-variables and out-variables of the expression.
         """
+
         # require non-nested/dot references
+        # typeArguments diamond <T> type T is ignored
         if len(ref := self.occurs(ctx.getChild(0))) != 1:
             self.skipped(ctx, 'new obj')
             return set(), set()
+
         # params flow through a unique object reference
         ref = self.uniq_name(list(ref)[0], self.vars, 0)
         params = self.flatten(ctx.getChild(1)).getChild(1)
@@ -605,7 +600,7 @@ class RecVisitor(ExtVisitor):
     def visitExpression(self, ctx: JavaParser.ExpressionContext):
         """Expressions cf. grammars/JavaParser.g4#L599--660"""
         if (cc := ctx.getChildCount()) == 3:
-            lc, o, rc = [ctx.getChild(n) for n in [0, 1, 2]]
+            lc, o, rc = map(ctx.getChild, range(3))
             op = o.getText()
             # Recognize assignment by operator form.
             # If compound, out-variable is also an in-variable,
@@ -639,17 +634,13 @@ class RecVisitor(ExtVisitor):
                 return
 
         # method call => fall-through
-        if cc == 1 and (c0 := ctx.getChild(0)).getChildCount() == 2:
-            if (c1 := c0.getChild(1)).getChildCount() == 3:
-                fst, lst = [c1.getChild(n).getText() for n in (0, 2)]
-                if fst == '(' and lst == ')':
-                    return super().visitExpression(ctx)
+        if self.is_app(ctx):
+            return super().visitExpression(ctx)
 
         # numeric or string constants
         # noinspection PyUnboundLocalVariable
-        if (cc == 1 and len(ct := ctx.getText())
-                and (ct.isdecimal()
-                     or (ct[0] == '"' and ct[-1] == '"'))):
+        if (cc == 1 and len(ct := ctx.getText()) and
+                (ct.isdecimal() or (ct[0] == '"' and ct[-1] == '"'))):
             return
 
         # something else => fall through
@@ -764,6 +755,20 @@ class IdVisitor(ExtVisitor):
     def vars(self):
         return set(self.flat)
 
+    def visitCreatedName(self, ctx: JavaParser.CreatedNameContext):
+        """CreatedName (cf. JavaParser.g4 L729-731) is a dot-separated
+        sequence of identifiers, optionally with type diamonds, -or- a
+        primitive type. When it is a sequence, this method joins the
+        identifiers to construct one qualified identifier.
+        """
+        if (n := ctx.getChildCount()) == 1:
+            return super().visitCreatedName(ctx)
+        parts = []
+        for child in range(n):
+            if (c := ctx.getChild(child)).getText() != ".":
+                parts += IdVisitor().visit(c).flat
+        return self.flat.append(".".join(parts))
+
     def visitIdentifier(self, ctx: JavaParser.IdentifierContext):
         super().visitIdentifier(ctx)
         self.flat.append(ctx.getText())
@@ -778,5 +783,10 @@ class ArrayInitializerVisitor(ExtVisitor):
             self, ctx: JavaParser.ArrayCreatorRestContext):
         self.match = True
 
-    def visitArrayInitializer(self, ctx:JavaParser.ArrayInitializerContext):
+    def visitArrayInitializer(
+            self, ctx: JavaParser.ArrayInitializerContext):
+        self.match = True
+
+    def visitElementValueArrayInitializer(
+            self, ctx: JavaParser.ElementValueArrayInitializerContext):
         self.match = True
