@@ -122,11 +122,12 @@ skips              : Uncovered program statements, if any
 
 ```
 .
-├─ analysis/               : analyzer source code
-│  ├─ analyzers/           : analyzers for input languages
+├─ .github/                : automated workflows      
+├─ analysis/               : the analyzer source code
+│  ├─ analyzers/           : input languages analysis
 │  ├─ parser/              : generated parser (from grammars)
-│  └─ *                    : implementation
-├─ benchmarks/             : (submodule) benchmark suite
+│  └─ *                    : other source code
+├─ benchmarks/             : (submodule) ifspec benchmark suite
 ├─ grammars/               : input language specifications
 ├─ programs/               : example programs for analysis
 ├─ tests/                  : unit tests
@@ -151,18 +152,15 @@ make clean                 : remove generated files (except parser)
 make help                  : lists other available commands
 ```
 
-* Running these commands assumes dev requirements are installed.
-  Run `./setup.sh` for easy dev-setup.
+* Running these commands assumes dev requirements are installed;
+  run `./setup.sh` for easy dev-setup.
 
-* The analyzer expects input in high-level input language, i.e., a `.java` file.
+* The analyzer expects input in high-level input language, i.e., a Java file.
   It is not necessary to compile the java programs, but
 
-  * Bytecode may be interesting, so there are commands to generate bytecode.
+  * Bytecode may be interesting to inspect, so there are commands to generate bytecode.
   
-  * The parser is more generous than a compiler, and will parse invalid 
-    expressions. To make sure input programs are actually valid, 
-    running them through a compiler is a useful sanity check.
+  * To make sure input programs are actually valid, compiling them is a useful sanity check.
 
-* It is also not necessary to rebuild the parser; it is already built. 
-  But can be rebuilt with the Makefile commands.
+* The parsers are built, but can be re-built with the Makefile commands.
 
