@@ -100,25 +100,7 @@ skips              : Uncovered program statements, if any
 
 ## Development notes
 
-**About design choices**
-
-* No optimizations are applied to the input program; it is analyzed as-is (excl. comments).
-* All variables, methods, etc. retain their original identifiers.
-* The Java parser is generated, with [ANTLR](https://www.antlr.org/), from the grammars.
-* Using ANTLR has many benefits for this kind of project:
-  * Can add front-end languages with low(-ish) overhead. 
-  * Can choose input languages so that comparisons with previous works is possible.
-  * Analyzer implementation freedom: can choose any ANTLR target language.
-  * Adding OOP concepts later should be implementationally straightforward.
-  * Immediately have a precise documented specification of supported inputs.
-  * See list of all available [grammars](https://github.com/antlr/grammars-v4) if this is of interest.
-* Everything done here should be doable in compiler IR.
-  * Parse tree has more information than necessary; the analysis could do with less.
-  * Current design makes the analyzer light and isolated for simplicity.
-  * No reason so far why it could not take place inside a compiler.
-
-
-**Repository organization**
+#### Repository organization
 
 ```
 .
@@ -139,7 +121,7 @@ skips              : Uncovered program statements, if any
 
 ```````
 
-**Commands**
+#### Commands
 
 Some helpful commands for development
 
@@ -154,13 +136,25 @@ make help                  : lists other available commands
 
 * Running these commands assumes dev requirements are installed;
   run `./setup.sh` for easy dev-setup.
-
 * The analyzer expects input in high-level input language, i.e., a Java file.
   It is not necessary to compile the java programs, but
-
-  * Bytecode may be interesting to inspect, so there are commands to generate bytecode.
-  
-  * To make sure input programs are actually valid, compiling them is a useful sanity check.
-
+    * Compiling programs is a useful sanity check to make sure inputs are actually valid.
+    * Bytecode may be interesting to inspect, so there are commands to generate bytecode.
 * The parsers are built, but can be re-built with the Makefile commands.
 
+#### About design choices
+
+* No optimizations are applied to the input program; it is analyzed as-is (excl. comments).
+* All variables, methods, etc. retain their original identifiers.
+* The Java parser is generated, with [ANTLR](https://www.antlr.org/), from the grammars.
+* Using ANTLR has many benefits for this kind of project:
+    * Can add front-end languages with low(-ish) overhead.
+    * Can choose input languages so that comparisons with previous works is possible.
+    * Analyzer implementation freedom: can choose any ANTLR target language.
+    * Adding OOP concepts later should be implementationally straightforward.
+    * Immediately have a precise documented specification of supported inputs.
+    * See list of all available [grammars](https://github.com/antlr/grammars-v4) if this is of interest.
+* Everything done here should be doable in compiler IR.
+    * Parse tree has more information than necessary; the analysis could do with less.
+    * Current design makes the analyzer light and isolated for simplicity.
+    * No reason so far why it could not take place inside a compiler.

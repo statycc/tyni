@@ -73,8 +73,8 @@ class Bcolors:
                 attr_of(Bcolors, str) if x.isupper()]
 
     @staticmethod
-    def un_color(s: str):
-        """Remove all color codes from text"""
+    def un_color(text: str):
+        """Remove all color codes from text."""
         for c in Bcolors.all_colors():
-            s = s.replace(c, '')
-        return s
+            text = text.replace(c, '')
+        return text
