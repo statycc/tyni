@@ -4,23 +4,44 @@ import json
 import logging
 import time
 from typing import Optional, List, Tuple
+from types import SimpleNamespace
 
 from . import Colors, utils
 
 logger = logging.getLogger(__name__)
+
+PRINTER = SimpleNamespace(**{
+    'PRETTY': True,
+    'CODE': True
+})
 
 
 class Result(dict):
     AR = 'analysis_result'
 
     def __init__(self, in_: str, out_: str = None,
-                 save=False, args=None):
+                 save=False, cmd=None, printer=None):
         super().__init__()
-        self.cmd = args
+        dn = (utils.gen_filename(in_) if save else None)
+        self.cmd = cmd
         self.infile = in_
-        self.outfile = out_ or (
-            utils.gen_filename(in_) if save else None)
+        self.outfile = out_ or dn
         self.timers = Timers()
+        self.config_printer(printer)
+
+    @staticmethod
+    def config_printer(options):
+        global PRINTER
+        initial = {**PRINTER.__dict__}
+        if options == "0":
+            for k in initial:
+                initial[k] = False
+        elif options:
+            for k, v in [o.upper().split('=', 1) for o in
+                         options.split(',') if '=' in o]:
+                if k in initial:
+                    initial[k] = (v == "1")
+        PRINTER = SimpleNamespace(**initial)
 
     @property
     def analyzer(self) -> str:
@@ -78,6 +99,10 @@ class Result(dict):
     def timers(self, t: Timers):
         self.__setitem__('timing', t)
 
+    @property
+    def source_code(self):
+        return True
+
     def save(self) -> Result:
         """Saves results to file, if outfile is specified.
         If no outfile is specified, this method does nothing.
@@ -107,9 +132,9 @@ class Result(dict):
         self.outfile, self.timers = out, tms
         self.analysis_result = ar = AnalysisResult()
         for k, v in json_data[self.AR].items():
-            values = [(m, MethodResult.init(d))
-                      for m, d in v.items()]
-            ar[k] = ClassResult(k, dict(values))
+            ar[k] = ClassResult(k, dict([
+                (m, MethodResult.init(d))
+                for m, d in v.items()]))
         self.__setitem__('reloaded', True)
         return self
 
@@ -121,9 +146,10 @@ class Result(dict):
 
     def to_pretty(self) -> Result:
         """Pretty-print analysis results."""
-        logger.info('\n'.join([
-            'RESULTS', str(self.analysis_result),
-            str(self.timers), AnalysisResult.SL]))
+        if PRINTER.PRETTY:
+            items = ['RESULTS', str(self.analysis_result),
+                     str(self.timers), AnalysisResult.SL]
+            print('\n'.join(items))
         return self
 
 
@@ -302,18 +328,20 @@ class MethodResult(AnalysisResult):
         return method
 
     def __str__(self):
-        source_code = self.map_skips(self.source, self.skips)
+        source = (self.map_skips(self.source, self.skips) + '\n') \
+            if PRINTER.CODE else ''
         name = self.bcolor(self.full_name)
         vars_ = self.join_(self.ids)
         flows = self.join_(self.flows, self.flow_fmt)
-        model = self.join_(self.model.split(", ")) \
-            if self.model else '-'
-        return (f'{"METHOD:":<{self.PAD}}{name}\n'
-                f'{source_code}\n'
+        model = (self.join_(self.model.split(", "))
+                 if self.model else '-')
+        m_vals = f'\n{" " * self.PAD}{model}' if self.model else ''
+        skips = (f'\n{"SKIPS:":<{self.PAD}}{self.join_(self.skips)}'
+                 if self.skips else "")
+        return (f'{"METHOD:":<{self.PAD}}{name}\n{source}'
                 f'{"VARS:":<{self.PAD}}{vars_}\n'
                 f'{"FLOWS:":<{self.PAD}}{flows}\n'
-                f'{"MODEL:":<{self.PAD}}{self.sat}\n'
-                f'{" " * self.PAD}{model}')
+                f'{"MODEL:":<{self.PAD}}{self.sat}{m_vals}{skips}')
 
 
 class Timers(dict):

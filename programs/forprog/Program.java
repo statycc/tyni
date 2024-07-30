@@ -1,4 +1,4 @@
-package vectmult;
+package forprog;
 
 @SuppressWarnings("SameParameterValue")
 public class Program {

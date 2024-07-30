@@ -566,11 +566,11 @@ class RecVisitor(ExtVisitor):
         elif ctx.IF():
             return self.__if(ctx)
         elif ctx.FOR():
-            return self.__for(ctx)
+            return self.for_loop(ctx)
         elif ctx.DO() and ctx.WHILE():
-            return self.__do(ctx)
+            return self.do_loop(ctx)
         elif ctx.WHILE():
-            return self.__while(ctx)
+            return self.while_loop(ctx)
         elif ctx.TRY():
             return self.skipped(ctx)
         elif ctx.SWITCH():
@@ -706,7 +706,8 @@ class RecVisitor(ExtVisitor):
         stmt = self.corr_stmt(switch_var, visited=switch_ctx)
         self.scoped_merge(stmt)
 
-    def __for(self, ctx: JavaParser.StatementContext):
+    def for_loop(self, ctx: JavaParser.StatementContext):
+        """Analyzes a for-loop or foreach loop"""
         for_ctrl, body = ctx.getChild(2), ctx.getChild(4)
 
         # loop with 3-part control expression
@@ -734,11 +735,13 @@ class RecVisitor(ExtVisitor):
         self.skipped(ctx, 'for')
         super().visitStatement(ctx)
 
-    def __while(self, ctx: JavaParser.StatementContext):
+    def while_loop(self, ctx: JavaParser.StatementContext):
+        """Analyzes a while loop."""
         cond, body = ctx.getChild(1), ctx.getChild(2)
         self.scoped_merge(self.corr_stmt(cond, body))
 
-    def __do(self, ctx: JavaParser.StatementContext):
+    def do_loop(self, ctx: JavaParser.StatementContext):
+        """Analyzes a do-while loop."""
         body, cond = ctx.getChild(1), ctx.getChild(3)
         self.scoped_merge(self.corr_stmt(cond, body))
 
@@ -775,6 +778,7 @@ class IdVisitor(ExtVisitor):
 
 
 class ArrayInitializerVisitor(ExtVisitor):
+    """Detects array initialization expressions."""
 
     def __init__(self):
         self.match = False

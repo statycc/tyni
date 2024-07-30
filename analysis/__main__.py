@@ -30,7 +30,7 @@ def main():
         sys.exit(1)
 
     # initialize results objects
-    result = Result(args.input, args.out, args.save, args=argv)
+    result = Result(args.input, args.out, args.save, argv, args.print)
     # setup logger utility
     logger = __logger_setup(
         args.log_level, result.log_fn if args.log else None)
@@ -130,10 +130,19 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         '-r', '--run',
         action='store',
         choices=[e.value for e in Steps],
-        metavar="X",
+        metavar="STEP",
         dest='run',
-        help='run steps: P=parser, A=analysis, E=evaluation '
+        help='analyzer steps: P=parser, A=analysis, E=evaluation '
              '(default: E)',
+        default='E',
+        type=str.upper
+    )
+    parser.add_argument(
+        '-p', '--print',
+        action='store',
+        dest='print',
+        metavar="OPT",
+        help='turn result printing options on=1 or off=0',
         default='E',
         type=str.upper
     )

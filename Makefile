@@ -27,7 +27,7 @@ PROGS = $(wildcard $(P_DIR)/**/*.java) $(wildcard benchmarks/JavaSourceCode/**/*
 
 ### ANALYSIS
 ANALYZER = analysis
-DEFAULT_OUT = out
+OUTPUT = out
 
 dev:
 	@test -d venv || python3 -m venv venv;
@@ -35,7 +35,7 @@ dev:
 	@pip3 install -q -r requirements-dev.txt
 
 compile: $(P_DIR)
-	@$(foreach p, $(PROGZ), javac -d ./$(O_DIR)/ $(P_DIR)/$(p)/*.java ; )
+	@$(foreach p, $(PROGZ), echo "COMPILE $(p)/*.java" && javac -d ./$(O_DIR)/ $(P_DIR)/$(p)/*.java ; )
 
 bytecode: $(O_DIR)
 	@mkdir -p $(B_DIR)
@@ -61,6 +61,6 @@ cloc:
 	cloc . --exclude-dir=venv,.idea,parser,out,build,.github,.pytest_cache,benchmarks
 
 clean:
-	@rm -rf $(O_DIR) $(B_DIR) $(DEFAULT_OUT)
+	@rm -rf $(O_DIR) $(B_DIR) $(OUTPUT)
 	@rm -rf .pytest_cache tests/.pytest_cache .coverage .cov_missing
 	@find . -name \*.Program.txt -type f -delete

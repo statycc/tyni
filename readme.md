@@ -10,19 +10,19 @@ A static analyzer of data confidentiality issues, implementing our information f
 4. Evaluate the matrix against security policy and security classes using a solver.
 
 ```
-                            [input].java
-                                   ↓
-╔──── the analyzer ─────────────────────────────────────────────────╗
-│                                                                   │ 
-│  1. generate parse-tree   // parsing by ANTLR parser              │
-│                                                                   │
-│  2. gather matrix data    // data-flow analysis by IRC calculus   │
-│                                                                   │
-│  3. evaluate matrix data  // evaluation by solver                 │
-│                                                                   │
-╚───────────────────────────────────────────────────────────────────╝
-                                   ↓
-        information about data confidentiality of the input program                              
+                                    input.java
+                                         ↓
+      ╔──── the analyzer ─────────────────────────────────────────────────╗
+      │                                                                   │ 
+      │  1. generate parse-tree   // parsing by ANTLR parser              │
+      │                                                                   │
+      │  2. gather matrix data    // data-flow analysis by IRC calculus   │
+      │                                                                   │
+      │  3. evaluate matrix data  // evaluation by solver                 │
+      │                                                                   │
+      ╚───────────────────────────────────────────────────────────────────╝
+                                         ↓
+              information about data confidentiality of the input program                              
 ```
 
 ## Interpreting analyzer results
@@ -122,19 +122,20 @@ skips              : Uncovered program statements, if any
 
 ```
 .
-├─ analysis/               # analyzer source code
-│  ├─ analyzers/           # analyzers for input languages
-│  ├─ parser/              # generated parser (from grammars)
-│  └─ *                    # implementation
-├─ benchmarks/             # (submodule) benchmark suite
-├─ grammars/               # input language specifications
-├─ programs/               # example programs for analysis
-├─ tests/                  # unit tests
-├─ Makefile                # helpful commands
-├─ readme.md               # instructions
-├─ requirements.txt        # Python dependencies 
-├─ requirements-dev.txt    # Python development dependencies
-└─ setup.sh                # automation dev-env setup script
+├─ analysis/               : analyzer source code
+│  ├─ analyzers/           : analyzers for input languages
+│  ├─ parser/              : generated parser (from grammars)
+│  └─ *                    : implementation
+├─ benchmarks/             : (submodule) benchmark suite
+├─ grammars/               : input language specifications
+├─ programs/               : example programs for analysis
+├─ tests/                  : unit tests
+├─ Makefile                : helpful commands
+├─ readme.md               : instructions
+├─ requirements.txt        : Python dependencies 
+├─ requirements-dev.txt    : Python development dependencies
+└─ setup.sh                : automation dev-env setup script
+
 ```````
 
 **Commands**
@@ -142,11 +143,12 @@ skips              : Uncovered program statements, if any
 Some helpful commands for development
 
 ```
-make test     # run unit tests
-make lint     # run linter
-make ptest    # try parse all programs
-make clean    # remove generated files (except parser)
-make help     # lists other available commands
+make test                  : run unit tests
+make lint                  : run linter
+make ptest                 : try parse all programs & benchmarks
+make compile               : try compile all programs
+make clean                 : remove generated files (except parser)
+make help                  : lists other available commands
 ```
 
 * Running these commands assumes dev requirements are installed.
