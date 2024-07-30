@@ -16,7 +16,7 @@ A static analyzer of data confidentiality issues, implementing our information f
          │                                                                   │ 
          │  1. generate parse-tree   // parsing by ANTLR parser              │
          │                                                                   │
-         │  2. gather matrix data    // data-flow analysis by IF calculus   │
+         │  2. gather matrix data    // data-flow analysis by IF calculus    │
          │                                                                   │
          │  3. evaluate matrix data  // evaluation by solver                 │
          │                                                                   │
