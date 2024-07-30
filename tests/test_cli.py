@@ -1,11 +1,12 @@
-import sys
 from types import SimpleNamespace
 from typing import Optional
 
 from pytest import raises
 
-from analysis import Timeable, ClassResult, AnalysisResult, __main__
-from analysis.analyzer import AbstractAnalyzer
+from analysis import Timeable, Result, ClassResult, AnalysisResult
+from analysis import __main__
+from analysis.analyzer import AbstractAnalyzer, choose_analyzer
+from analysis.analyzer import JavaAnalyzer, JsonLoader
 
 
 class MockAnalyzer(AbstractAnalyzer):
@@ -25,28 +26,54 @@ def parse_args(**kwargs):
     return SimpleNamespace(**dict({**default, **kwargs}))
 
 
-def my_isfile(arg):
-    return arg is not None
+def my_chooser(input_file: str):
+    return MockAnalyzer if \
+        (input_file.endswith("java") or
+         input_file.endswith("json")) else None
+
+
+def my_isfile(path):
+    return path and "." in path
 
 
 def mock_setup(mocker, **args):
     mocker.patch('analysis.__main__.isfile', wraps=my_isfile)
+    mocker.patch('analysis.__main__.choose_analyzer', wraps=my_chooser)
     mocker.patch('analysis.__main__.__parse_args',
                  return_value=(args := parse_args(**args)))
-    mocker.patch('analysis.__main__.choose_analyzer',
-                 return_value=MockAnalyzer)
     return args
 
 
+def test_chooser():
+    assert choose_analyzer("my_file.java") == JavaAnalyzer
+    assert choose_analyzer("result.json") == JsonLoader
+    assert choose_analyzer("whatever.c") is None
+    assert choose_analyzer("my_file.js") is None
+
+
 def test_analyzes_file(mocker):
-    args = mock_setup(mocker, input="my_file.java")
-    assert args.input is not None
-    assert __main__.main() is not None
+    mock_setup(mocker, input="my_file.java")
+    assert isinstance(__main__.main(), Result)
 
 
-def test_analyzes_exits_on_no_file(mocker):
+def test_analyzes_exits_wo_input(mocker):
     args = mock_setup(mocker, input=None)
     assert args.input is None
+    with raises(SystemExit):
+        assert __main__.main()
+
+
+def test_analyzes_exits_on_invalid_input(mocker):
+    args = mock_setup(mocker, input="not_file")
+    assert args.input is not None
+    with raises(SystemExit):
+        assert __main__.main()
+
+
+def test_analyzes_exits_on_incompatible_input(mocker):
+    args = mock_setup(mocker, input="some_file.c")
+    assert args.input is not None
+    assert my_isfile(args.input)
     with raises(SystemExit):
         assert __main__.main()
 

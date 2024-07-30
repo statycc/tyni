@@ -3,7 +3,7 @@
 import gc
 import logging
 import sys
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser, Namespace, RawTextHelpFormatter
 from enum import Enum
 from os.path import isfile
 from sys import argv
@@ -21,7 +21,8 @@ def main() -> Result:
     """Command-line interface main routine."""
 
     # parse the command arguments
-    parser = ArgumentParser(prog=prog_name)
+    parser = ArgumentParser(prog=prog_name,
+                            formatter_class=RawTextHelpFormatter)
     args = __parse_args(parser)
 
     # make sure input file is specified
@@ -144,8 +145,9 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         dest='print',
         metavar="OPT",
         help='turn result printing options on=1 or off=0 '
-             '(default: pretty=1,code=1)',
-        default='E',
+             '(default: "pretty=1,code=1")'
+             '\n* options: [pretty] print result, show [code] blocks'
+             '\n* disable all printing output by --print 0',
         type=str.upper
     )
     parser.add_argument(

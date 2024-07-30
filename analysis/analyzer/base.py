@@ -32,7 +32,7 @@ class AbstractAnalyzer(ABC):
         return self._result.infile
 
     @property
-    def analysis_result(self) -> AnalysisResult:
+    def analysis_result(self) -> AnalysisResult:  # pragma: no cover
         return self._result.analysis_result
 
     @analysis_result.setter
