@@ -10,10 +10,7 @@ from . import Colors, utils
 
 logger = logging.getLogger(__name__)
 
-PRINTER = SimpleNamespace(**{
-    'PRETTY': True,
-    'CODE': True
-})
+PRINTER = SimpleNamespace(**{'PRETTY': True, 'CODE': True})
 
 
 class Result(dict):
@@ -37,11 +34,17 @@ class Result(dict):
             for k in initial:
                 initial[k] = False
         elif options:
-            for k, v in [o.upper().split('=', 1) for o in
-                         options.split(',') if '=' in o]:
+
+            for k, v in [o.upper().replace(' ', '').split('=', 1)
+                         for o in options.split(',') if '=' in o]:
                 if k in initial:
                     initial[k] = (v == "1")
         PRINTER = SimpleNamespace(**initial)
+
+    @staticmethod
+    def printer():
+        global PRINTER
+        return PRINTER
 
     @property
     def analyzer(self) -> str:
@@ -146,7 +149,7 @@ class Result(dict):
 
     def to_pretty(self) -> Result:
         """Pretty-print analysis results."""
-        if PRINTER.PRETTY:
+        if Result.printer().PRETTY:
             items = ['RESULTS', str(self.analysis_result),
                      str(self.timers), AnalysisResult.SL]
             print('\n'.join(items))
@@ -329,7 +332,7 @@ class MethodResult(AnalysisResult):
 
     def __str__(self):
         source = (self.map_skips(self.source, self.skips) + '\n') \
-            if PRINTER.CODE else ''
+            if Result.printer().CODE else ''
         name = self.bcolor(self.full_name)
         vars_ = self.join_(self.ids)
         flows = self.join_(self.flows, self.flow_fmt)

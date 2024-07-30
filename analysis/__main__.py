@@ -17,7 +17,7 @@ Steps = Enum('Steps', [
 
 
 # noinspection PyUnusedLocal
-def main():
+def main() -> Result:
     """Command-line interface main routine."""
 
     # parse the command arguments
@@ -65,6 +65,7 @@ def main():
         Evaluate(result).solve_all(result.timers.eval)
     result.timers.total.stop()
     result.save().to_pretty()
+    return result
 
 
 def __logger_setup(level_arg: int, log_filename: str = None) \
@@ -142,7 +143,8 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         action='store',
         dest='print',
         metavar="OPT",
-        help='turn result printing options on=1 or off=0',
+        help='turn result printing options on=1 or off=0 '
+             '(default: pretty=1,code=1)',
         default='E',
         type=str.upper
     )

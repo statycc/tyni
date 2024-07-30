@@ -12,15 +12,15 @@ A static analyzer of data confidentiality issues, implementing our information f
 ```
                                     input.java
                                          ↓
-      ╔──── the analyzer ─────────────────────────────────────────────────╗
-      │                                                                   │ 
-      │  1. generate parse-tree   // parsing by ANTLR parser              │
-      │                                                                   │
-      │  2. gather matrix data    // data-flow analysis by IRC calculus   │
-      │                                                                   │
-      │  3. evaluate matrix data  // evaluation by solver                 │
-      │                                                                   │
-      ╚───────────────────────────────────────────────────────────────────╝
+         ╔──── the analyzer ─────────────────────────────────────────────────╗
+         │                                                                   │ 
+         │  1. generate parse-tree   // parsing by ANTLR parser              │
+         │                                                                   │
+         │  2. gather matrix data    // data-flow analysis by IRC calculus   │
+         │                                                                   │
+         │  3. evaluate matrix data  // evaluation by solver                 │
+         │                                                                   │
+         ╚───────────────────────────────────────────────────────────────────╝
                                          ↓
               information about data confidentiality of the input program                              
 ```
@@ -35,7 +35,7 @@ name               : Fully qualified name
 variables          : Encountered variables, see note below               
 flows              : Interfering variable pairs (in, out)    
 satisfiability     : Solver outcome SAT/UNSAT                 
-model              : If SAT, security levels to make the method non-interfering
+model              : Security levels to make the method non-interfering
 skips              : Uncovered program statements, if any 
 ```
 

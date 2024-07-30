@@ -64,8 +64,7 @@ def test_array_access():
 
 
 def test_nonsensical_init_fails_to_parse():
-    # test that these cannot parse
-    # we do not care about how they are recognized internally.
+    # cannot parse => irrelevant how they would evaluate
     assert from_str("int[] a = arr[];")[0] > 0
     assert from_str("int[] a = new int[3]{1, 2, 3};")[0] > 0
     assert from_str("int[][] a = arr[][8];")[0] > 0

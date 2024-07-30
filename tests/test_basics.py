@@ -5,6 +5,7 @@ from pytest import raises
 
 from analysis import Result, utils
 from analysis.analyzer import BaseVisitor
+from analysis.utils import Bcolors as Colors
 
 
 def test_default_out_varying_path_depth():
@@ -62,3 +63,10 @@ def test_attr_of():
     obj = Dummy()
     assert utils.attr_of(obj, int) == ["x", "z"]
     assert utils.attr_of(obj, tuple) == ["y"]
+
+
+def test_color_replace():
+    txt = "hello world"
+    with_color = Colors.OKBLUE + txt + Colors.ENDC
+    assert with_color != txt
+    assert Colors.un_color(with_color) == txt
