@@ -197,7 +197,7 @@ class AnalysisResult(dict):
     def __str__(self) -> str:
         """Neat display of analysis results."""
         un_cov = f'{AnalysisResult.yellow("■")} = ' \
-                 f'uncovered statements (if any)'
+                 f'uncovered statements'
         return un_cov + '\n' + "".join(
             map(str, self.values()))
 
