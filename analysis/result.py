@@ -3,19 +3,85 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Optional, List, Tuple
 from types import SimpleNamespace
+from typing import Optional, List, Tuple
 
 from . import Colors, utils
 
 logger = logging.getLogger(__name__)
 
 PRINTER = SimpleNamespace(
-    **{'PRETTY': True, 'CODE': True, 'TIME': True})
+    **{'PRETTY': True,
+       'CODE': True,
+       'METHODS': True,
+       'TIME': True})
+"""
+Controls for how results are printed at the screen
+
+PRETTY   -- show pretty-printed results
+CODE     -- show code blocks
+METHODS  -- show results for each method
+TIME     -- show analysis time
+"""
+
+
+class DirResult:
+
+    def __init__(self, in_: str, files: list[str], printer=None):
+        self.infile = in_
+        self.files = files
+        self.results = []
+        Result.config_printer(printer)
+
+    @property
+    def n(self) -> int:
+        return len(self.files)
+
+    @property
+    def i(self) -> int:
+        return len(self.results)
+
+    @property
+    def progress(self) -> float:
+        return (float(self.i) / self.n) if self.files else 1.0
+
+    def show_progress(self):
+        if PRINTER.PRETTY:
+            print(f"\nProgress: {self.i} of {self.n},"
+                  f" {self.progress:.0%}")
+
+    def to_pretty(self) -> DirResult:
+        """Show aggregate stats for whole-directory."""
+        if PRINTER.PRETTY:
+            skip_dict = dict()
+            methods, full_cover = 0, 0
+            for r in self.results:
+                ar = r.analysis_result
+                for cls in ar.children():
+                    for m in ar.children_of(cls):
+                        methods += 1
+                        for s in ar[cls][m].pretty_skips:
+                            if s not in skip_dict:
+                                skip_dict[s] = 1
+                            else:
+                                skip_dict[s] += 1
+                        if len(ar[cls][m].skips) == 0:
+                            full_cover += 1
+
+            view = [f"  {v}x {k}" for (v, k) in
+                    sorted([(v, k) for k, v in
+                            skip_dict.items()],
+                           reverse=True)[:20]]
+            print(AnalysisResult.SEP[1:] +
+                  f"Fully covered methods: {full_cover} of {methods}"
+                  "\nSKIPPED (TOP 20)\n" + "\n".join(view))
+        return self
 
 
 class Result(dict):
     AR = 'analysis_result'
+    LLN = 52
+    DIV = '─' * LLN
 
     def __init__(self, in_: str, out_: str = None,
                  save=False, cmd=None, printer=None):
@@ -149,9 +215,10 @@ class Result(dict):
             fn = utils.trunc_name(self.infile, AnalysisResult.LLN)
             u = self.analysis_result.un_cov
             un_cov = f'\n{u}' if u else ''
+            res = [f'{self.DIV}\nRESULTS {fn}{un_cov}']
             ar = str(self.analysis_result)
-            bnd = '─' * AnalysisResult.LLN
-            res = [f'{bnd}\nRESULTS {fn}{un_cov}', ar]
+            if len(str(ar)):
+                res.append(ar)
             if PRINTER.TIME:
                 res.append(str(self.timers))
             print(f'{AnalysisResult.SEP.join(res)}')
@@ -161,7 +228,7 @@ class Result(dict):
 class AnalysisResult(dict):
     """Base class for a capturing analysis results."""
 
-    LLN, PAD = 52, 10
+    LLN, PAD = Result.LLN, 10
     SL = '-' * LLN
     SEP = f"\n{SL}\n"
 
@@ -173,7 +240,7 @@ class AnalysisResult(dict):
     def un_cov(self):
         symb = AnalysisResult.yellow("■")
         return f'{symb} = uncovered statements' \
-            if PRINTER.CODE else ''
+            if PRINTER.CODE and PRINTER.METHODS else ''
 
     @staticmethod
     def cyan_blue(text: str) -> str:
@@ -218,8 +285,19 @@ class ClassResult(AnalysisResult):
         self.name = name
 
     def __str__(self):
-        return (self.SEP.join(map(str, self.values()))
-                if self.not_empty else '')
+        if PRINTER.METHODS:
+            return self.SEP.join(map(str, self.values()))
+        elif PRINTER.CODE:
+            blocks = [b.code_block for b in self.values()]
+            return self.SEP.join(blocks)
+        return ''
+
+    def list_skips(self):
+        skips = []
+        for method in self.values():
+            s = method.pretty_skips()
+            skips.append(s)
+        return skips
 
 
 class MethodResult(AnalysisResult):
@@ -336,8 +414,23 @@ class MethodResult(AnalysisResult):
                 skip, MethodResult.yellow(skip))
         return method
 
+    @property
+    def code_block(self):
+        return self.map_skips(self.source, self.skips)
+
+    @property
+    def pretty_skips(self):
+        """List skipped statements, after minor formatting."""
+
+        def fmt(stmt):
+            for v_name in self.ids:
+                stmt = stmt.replace(v_name, '')
+            return utils.rem_ws(stmt.replace(';', '')).strip()
+
+        return [fmt(s) for s in self.skips]
+
     def __str__(self):
-        source = (self.map_skips(self.source, self.skips) + '\n') \
+        source = (self.code_block + '\n') \
             if Result.printer().CODE else ''
         name = self.bcolor(self.full_name)
         vars_ = self.join_(self.ids)
@@ -345,8 +438,8 @@ class MethodResult(AnalysisResult):
         model = (self.join_(self.model.split(", "))
                  if self.model else '-')
         m_vals = f'\n{" " * self.PAD}{model}' if self.model else ''
-        pretty_skips = [utils.rem_ws(s) for s in self.skips]
-        skips = (f'\n{"SKIPS:":<{self.PAD}}{self.join_(pretty_skips)}'
+        skips = (f'\n{"SKIPS:":<{self.PAD}}'
+                 f'{self.join_(self.pretty_skips)}'
                  if self.skips else "")
         return (f'{"METHOD:":<{self.PAD}}{name}\n{source}'
                 f'{"VARS:":<{self.PAD}}{vars_}\n'

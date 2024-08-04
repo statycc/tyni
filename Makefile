@@ -50,7 +50,7 @@ ptest: $(P_DIR)
 	@$(foreach p, $(PROGS), echo "PARSE $(p)" && python3 -m $(ANALYZER) $(p) -r p -l 0 ; )
 
 bench:
-	@python3 -m $(ANALYZER) benchmarks/JavaSourceCode -r a -l 0 -p "code=0,time=1"
+	@python3 -m $(ANALYZER) benchmarks/JavaSourceCode -r a -l 0 -p "methods=0,time=0,code=0"
 
 test:
 	pytest --cov-config=.coveragerc --cov=$(ANALYZER) tests --show-capture=no

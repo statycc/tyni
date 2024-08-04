@@ -9,7 +9,7 @@ from os.path import isfile, isdir, join as os_join
 from sys import argv
 from pathlib import Path
 
-from . import Colors, utils, Evaluate, Result
+from . import Colors, utils, Evaluate, Result, DirResult
 from . import __version__, __title__ as prog_name
 from .analyzer import choose_analyzer
 
@@ -39,7 +39,8 @@ def main() -> Result:
 
     def analyze_file(in_file):
         # initialize results objects
-        result = Result(in_file, args.out, args.save, argv, args.print)
+        result = Result(in_file, args.out, args.save,
+                        argv, args.print)
         # analyzer and solver setup
         # noinspection PyPep8Naming
         MyAnalyzer = choose_analyzer(in_file)
@@ -72,9 +73,12 @@ def main() -> Result:
     elif isdir(args.input):
         all_files = [os_join(path) for path in
                      Path(args.input).rglob('*.*')]
-        can_analyze = [f for f in all_files if choose_analyzer(f)]
-        for fl in can_analyze:
-            analyze_file(fl)
+        files = [f for f in all_files if choose_analyzer(f)]
+        res = DirResult(args.input, files, printer=args.print)
+        for fl in files:
+            res.results.append(analyze_file(fl))
+            res.show_progress()
+        res.to_pretty()
     else:
         logger.fatal(f'{Colors.FAIL}File does not exist: '
                      f'{args.input}{Colors.ENDC}')
@@ -158,7 +162,7 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         metavar="OPT",
         help='turn result printing options on=1 or off=0\n'
              'disable all printing output by "0"\n'
-             '(default: "code=1,time=1")',
+             '(default: "methods=1,code=1,time=1")',
         type=str.upper
     )
     parser.add_argument(
@@ -167,8 +171,8 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         choices=range(0, 5),
         metavar="[0-4]",
         dest='log_level',
-        help='logging verbosity 0=min … 4=max\n(default: 4)',
-        default=4,
+        help='logging verbosity 0=min … 4=max\n(default: 1)',
+        default=1,
         type=int
     )
     parser.add_argument(
