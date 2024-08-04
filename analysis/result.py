@@ -10,7 +10,8 @@ from . import Colors, utils
 
 logger = logging.getLogger(__name__)
 
-PRINTER = SimpleNamespace(**{'PRETTY': True, 'CODE': True})
+PRINTER = SimpleNamespace(
+    **{'PRETTY': True, 'CODE': True, 'TIME': True})
 
 
 class Result(dict):
@@ -31,12 +32,12 @@ class Result(dict):
         global PRINTER
         initial = {**PRINTER.__dict__}
         if options == "0":
-            for k in initial:
-                initial[k] = False
+            initial['PRETTY'] = False
         elif options:
-
-            for k, v in [o.upper().replace(' ', '').split('=', 1)
-                         for o in options.split(',') if '=' in o]:
+            def fmt(x):
+                return x.upper().replace(' ', '').split('=', 1)
+            items = [o for o in options.split(',') if '=' in o]
+            for k, v in [fmt(o) for o in items]:
                 if k in initial:
                     initial[k] = (v == "1")
         PRINTER = SimpleNamespace(**initial)
@@ -149,10 +150,16 @@ class Result(dict):
 
     def to_pretty(self) -> Result:
         """Pretty-print analysis results."""
-        if Result.printer().PRETTY:
-            items = ['RESULTS', str(self.analysis_result),
-                     str(self.timers), AnalysisResult.SL]
-            print('\n'.join(items))
+        if PRINTER.PRETTY:
+            fn = utils.trunc_name(self.infile, AnalysisResult.LLN)
+            u = self.analysis_result.un_cov
+            un_cov = f'\n{u}' if u else ''
+            ar = str(self.analysis_result)
+            bnd = '─' * AnalysisResult.LLN
+            res = [f'{bnd}\nRESULTS {fn}{un_cov}', ar]
+            if PRINTER.TIME:
+                res.append(str(self.timers))
+            print(f'{AnalysisResult.SEP.join(res)}')
         return self
 
 
@@ -166,6 +173,12 @@ class AnalysisResult(dict):
     @property
     def not_empty(self):
         return len(self.values()) > 0
+
+    @property
+    def un_cov(self):
+        symb = AnalysisResult.yellow("■")
+        return f'{symb} = uncovered statements' \
+            if PRINTER.CODE else ''
 
     @staticmethod
     def cyan_blue(text: str) -> str:
@@ -196,10 +209,9 @@ class AnalysisResult(dict):
 
     def __str__(self) -> str:
         """Neat display of analysis results."""
-        un_cov = f'{AnalysisResult.yellow("■")} = ' \
-                 f'uncovered statements'
-        return un_cov + '\n' + "".join(
-            map(str, self.values()))
+        items = [v for v in self.values() if str(v)]
+        return f'{self.SEP.join(map(str, items))}' \
+            if self.not_empty else ''
 
 
 class ClassResult(AnalysisResult):
@@ -211,10 +223,8 @@ class ClassResult(AnalysisResult):
         self.name = name
 
     def __str__(self):
-        sep = self.SEP
-        items = map(str, self.values())
-        vals = f'{sep[1:]}{sep.join(items)}{sep[:-1]}'
-        return vals if self.not_empty else ''
+        return (self.SEP.join(map(str, self.values()))
+                if self.not_empty else '')
 
 
 class MethodResult(AnalysisResult):
@@ -306,7 +316,7 @@ class MethodResult(AnalysisResult):
         while vals:
             v = vals.pop(0)
             vl = (0 if not acc else sp) + MethodResult.len_est(v)
-            if acc + vl >= max_w:
+            if acc + vl >= max_w and fst:
                 result.append(fst)
                 fst, acc = [], 0
             acc, fst = acc + vl, fst + [v]
@@ -327,7 +337,8 @@ class MethodResult(AnalysisResult):
     @staticmethod
     def map_skips(method: str, skips: List[str]) -> str:
         for skip in skips:
-            method = method.replace(skip, MethodResult.yellow(skip))
+            method = method.replace(
+                skip, MethodResult.yellow(skip))
         return method
 
     def __str__(self):

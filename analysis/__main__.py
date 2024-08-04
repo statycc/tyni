@@ -134,7 +134,7 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         choices=[e.value for e in Steps],
         metavar="STEP",
         dest='run',
-        help='analyzer steps: P=parser, A=analysis, E=evaluation '
+        help='analyzer steps\nP=parser, A=analysis, E=evaluation\n'
              '(default: E)',
         default='E',
         type=str.upper
@@ -144,10 +144,9 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         action='store',
         dest='print',
         metavar="OPT",
-        help='turn result printing options on=1 or off=0 '
-             '(default: "pretty=1,code=1")'
-             '\n* options: [pretty] print result, show [code] blocks'
-             '\n* disable all printing output by --print 0',
+        help='turn result printing options on=1 or off=0\n'
+             'disable all printing output by "0"\n'
+             '(default: "code=1,time=1")',
         type=str.upper
     )
     parser.add_argument(
@@ -156,7 +155,7 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         choices=range(0, 5),
         metavar="[0-4]",
         dest='log_level',
-        help='logging verbosity 0=min...4=max (default: 4)',
+        help='logging verbosity 0=min … 4=max\n(default: 4)',
         default=4,
         type=int
     )

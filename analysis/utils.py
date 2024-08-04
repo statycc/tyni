@@ -13,6 +13,22 @@ def ensure_path(fn: str) -> None:
         os.makedirs(dir_path)
 
 
+def trunc_name(fn: str, max_len: int) -> str:
+    """Truncate file path to fit in max_len."""
+    if len(fn) <= max_len:
+        return fn
+    pth = os.path.normpath(fn).split(os.path.sep)
+    tmp, offset = pth[-1], -2
+    while (t_len := len(tmp)) < max_len:
+        nxt = pth[offset]
+        if (len(nxt) + t_len + 1) < max_len:
+            tmp = f'{nxt}/{tmp}'
+            offset -= 1
+        else:
+            break
+    return f'…/{tmp}'
+
+
 def attr_of(obj: Any, type_: Any):
     """Get attributes of object that match type;
     e.g. get all str attributes of an object.

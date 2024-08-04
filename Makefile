@@ -24,6 +24,7 @@ O_DIR = build
 B_DIR = bytecode
 PROGZ = $(patsubst %/,%, $(patsubst $(P_DIR)/%,%, $(dir $(wildcard $(P_DIR)/*/$(PNAME).java))))
 PROGS = $(wildcard $(P_DIR)/**/*.java) $(wildcard benchmarks/JavaSourceCode/**/**/*.java)
+BENCH = $(wildcard benchmarks/JavaSourceCode/**/**/*.java)
 
 ### ANALYSIS
 ANALYZER = analysis
@@ -47,6 +48,9 @@ parser: $(GRAMMAR)
 
 ptest: $(P_DIR)
 	@$(foreach p, $(PROGS), echo "PARSE $(p)" && python3 -m $(ANALYZER) $(p) -r p -l 0 ; )
+
+bench:
+	@$(foreach p, $(BENCH), python3 -m $(ANALYZER) $(p) -r a -l 0 -p "code=0,time=0" ; )
 
 test:
 	pytest --cov-config=.coveragerc --cov=$(ANALYZER) tests --show-capture=no
