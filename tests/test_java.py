@@ -128,7 +128,7 @@ def test_local_scoping():
     assert ('x', 'z') in flows
     assert ('y', 'z') in flows
     assert len(flows) == 18
-    assert skips == ['return z;']
+    assert not skips
 
 
 def test_object_creation():

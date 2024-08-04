@@ -50,10 +50,10 @@ class DirResult:
     def progress(self) -> float:
         return (float(self.i) / self.n) if self.files else 1.0
 
-    def show_progress(self):
-        if PRINTER.PRETTY:
-            print(f"\nProgress: {self.i} of {self.n},"
-                  f" {self.progress:.0%}")
+    @property
+    def progress_str(self):
+        return (f"Progress: {self.i} of {self.n},"
+                f" {self.progress:.0%}")
 
     def record(self, result: Result):
         ar = result.analysis_result
@@ -75,6 +75,10 @@ class DirResult:
         self.stats_methods += mth
         self.stats_full_methods += full_m
         self.results += 1
+        if PRINTER.PRETTY:
+            empty = ' (empty)' if mth == full_m and not mth else ''
+            print(f'Methods: {mth}, Covered: {full_m}{empty}'
+                  f'\n{self.progress_str}')
 
     def top_skips(self, take=20):
         items = [(v, k) for k, v in self.stats_skip.items()]
@@ -95,7 +99,7 @@ class DirResult:
                   f"{nsp}{self.stats_full_methods} full cover"
                   f"\nSKIPPED STATEMENTS (TOP 20){nsp}" +
                   nsp.join([f"{v}x {k}" for (v, k) in
-                           self.top_skips(20)]))
+                            self.top_skips(20)]))
         return self
 
 
@@ -233,7 +237,7 @@ class Result(dict):
     def to_pretty(self) -> Result:
         """Pretty-print analysis results."""
         if PRINTER.PRETTY:
-            fn = utils.trunc_name(self.infile, AnalysisResult.LLN)
+            fn = utils.trunc_name(self.infile, 78)
             u = self.analysis_result.un_cov
             un_cov = f'\n{u}' if u else ''
             res = [f'{self.DIV}\nRESULTS {fn}{un_cov}']
@@ -330,13 +334,15 @@ class MethodResult(AnalysisResult):
                  full_name: str,
                  source: str,
                  flows: list[tuple[str, str]],
-                 identifiers: set[str],
-                 skips: List[str] = None):
+                 variables: set[str],
+                 skips: List[str] = None,
+                 returns: set[str] = None):
         super().__init__()
         super().__setitem__('full_name', full_name)
         super().__setitem__('source', source)
         super().__setitem__('flows', flows)
-        super().__setitem__('vars', list(identifiers or {}))
+        super().__setitem__('vars', list(variables or {}))
+        super().__setitem__('return', list(returns or {}))
         super().__setitem__('skips', skips or [])
         super().__setitem__('sat', None)
         super().__setitem__('model', None)
@@ -359,6 +365,10 @@ class MethodResult(AnalysisResult):
     @property
     def flows(self) -> List[str, str]:
         return self.__getitem__('flows')
+
+    @property
+    def returns(self) -> Tuple[str]:
+        return tuple(self.__getitem__('return'))
 
     @property
     def source(self) -> str:
@@ -440,12 +450,13 @@ class MethodResult(AnalysisResult):
         return self.map_skips(self.source, self.skips)
 
     @property
-    def pretty_skips(self):
+    def pretty_skips(self, replace_vars=False):
         """List skipped statements, after minor formatting."""
 
         def fmt(stmt):
-            for v_name in sorted(self.ids, key=lambda x: -len(x)):
-                stmt = stmt.replace(v_name, '')
+            if replace_vars:
+                for v_name in sorted(self.ids, key=lambda x: -len(x)):
+                    stmt = stmt.replace(v_name, '')
             return utils.rem_ws(stmt.replace(';', '')).strip()
 
         return [fmt(s) for s in self.skips]
@@ -455,6 +466,7 @@ class MethodResult(AnalysisResult):
             if Result.printer().CODE else ''
         name = self.bcolor(self.full_name)
         vars_ = self.join_(self.ids)
+        rets_ = self.join_(self.returns)
         flows = self.join_(self.flows, self.flow_fmt)
         model = (self.join_(self.model.split(", "))
                  if self.model else '-')
@@ -464,6 +476,7 @@ class MethodResult(AnalysisResult):
                  if self.skips else "")
         return (f'{"METHOD:":<{self.PAD}}{name}\n{source}'
                 f'{"VARS:":<{self.PAD}}{vars_}\n'
+                f'{"RETURN:":<{self.PAD}}{rets_}\n'
                 f'{"FLOWS:":<{self.PAD}}{flows}\n'
                 f'{"MODEL:":<{self.PAD}}{self.sat}{m_vals}{skips}')
 

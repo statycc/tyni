@@ -77,7 +77,6 @@ def main() -> Result:
         res = DirResult(args.input, len(files), printer=args.print)
         for fl in files:
             res.record(analyze_file(fl))
-            res.show_progress()
         res.to_pretty()
     else:
         logger.fatal(f'{Colors.FAIL}File does not exist: '

@@ -270,8 +270,8 @@ class ClassVisitor(ExtVisitor):
         h, c = self.hierarchy(self.name), self.og_text(ctx)
         logger.debug(f'method: {self.name}')
         mth = RecVisitor().visit(ctx.methodBody())
-        f, v, s = mth.flows, mth.vars, mth.skips
-        self.record(MethodResult(h, c, f, v, s))
+        f, v, r, s = mth.flows, mth.vars, mth.ret_v, mth.skips
+        self.record(MethodResult(h, c, f, v, s, r))
 
 
 class RecVisitor(ExtVisitor):
@@ -281,6 +281,7 @@ class RecVisitor(ExtVisitor):
         self.vars: set[str] = set()  # all encountered variables
         self.out_v: set[str] = set()  # encountered out-variables
         self.new_v: set[str] = set()  # encountered declarations
+        self.ret_v: set[str] = set()  # returned variables
         self.matrix: FLOW_T = []  # data flows (in, out)
         self.skips: List[str] = []  # omitted statements
 
@@ -313,6 +314,7 @@ class RecVisitor(ExtVisitor):
         self.vars = set(rename(self.vars))
         self.out_v = set(rename(self.out_v))
         self.new_v = set(rename(self.new_v))
+        self.ret_v = set(rename(self.ret_v))
 
     @staticmethod
     def merge(target: set[str], *args: set[str]) -> None:
@@ -578,7 +580,7 @@ class RecVisitor(ExtVisitor):
         elif ctx.SYNCHRONIZED():
             return self.skipped(ctx)
         elif ctx.RETURN():
-            return self.skipped(ctx)
+            return self.__return(ctx)
         elif ctx.THROW():
             return self.skipped(ctx)
         elif ctx.BREAK():
@@ -646,6 +648,14 @@ class RecVisitor(ExtVisitor):
         # something else => fall through
         super().visitExpression(ctx)
 
+    def __return(self, ctx: JavaParser.StatementContext):
+        if ctx.getChildCount() < 3:  # return;
+            return
+        # TODO: maybe need a fresh var?
+        r_vars = self.xvars(ctx.getChild(1))
+        logger.debug(f'return: {r_vars}')
+        RecVisitor.merge(self.ret_v, r_vars)
+
     def visitSwitchExpression(
             self, ctx: JavaParser.SwitchExpressionContext):
         """It's a fancy switch."""
@@ -667,6 +677,7 @@ class RecVisitor(ExtVisitor):
         self.merge(self.vars, child.vars)
         self.merge(self.out_v, child.out_v)
         self.merge(self.new_v, child.new_v)
+        self.merge(self.ret_v, child.ret_v)
         self.matrix = self.compose(self.matrix, child.matrix)
         self.skips += child.skips
         return self
