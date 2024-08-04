@@ -5,8 +5,9 @@ import logging
 import sys
 from argparse import ArgumentParser, Namespace, RawTextHelpFormatter
 from enum import Enum
-from os.path import isfile
+from os.path import isfile, isdir, join as os_join
 from sys import argv
+from pathlib import Path
 
 from . import Colors, utils, Evaluate, Result
 from . import __version__, __title__ as prog_name
@@ -21,8 +22,9 @@ def main() -> Result:
     """Command-line interface main routine."""
 
     # parse the command arguments
-    parser = ArgumentParser(prog=prog_name,
-                            formatter_class=RawTextHelpFormatter)
+    parser = ArgumentParser(
+        prog=prog_name,
+        formatter_class=RawTextHelpFormatter)
     args = __parse_args(parser)
 
     # make sure input file is specified
@@ -30,43 +32,53 @@ def main() -> Result:
         parser.print_help()
         sys.exit(1)
 
-    # initialize results objects
-    result = Result(args.input, args.out, args.save, argv, args.print)
     # setup logger utility
-    logger = __logger_setup(
-        args.log_level, result.log_fn if args.log else None)
+    logger = __logger_setup(args.log_level, (
+        utils.log_filename(args.input, args.out)
+        if args.log else None))
+
+    def analyze_file(in_file):
+        # initialize results objects
+        result = Result(in_file, args.out, args.save, argv, args.print)
+        # analyzer and solver setup
+        # noinspection PyPep8Naming
+        MyAnalyzer = choose_analyzer(in_file)
+        if MyAnalyzer is None:
+            logger.fatal('No supported analyzer')
+            sys.exit(1)
+        result.analyzer = MyAnalyzer.__name__
+        result.solver = Evaluate.info()
+        logger.debug(f'Using {result.analyzer}')
+
+        # run the analyzer
+        result.timers.total.start()
+        analyzer = MyAnalyzer(result)
+        analyzer.parse(result.timers.parse)
+        if args.run == Steps.PARSE.value:
+            result.timers.total.stop()
+            return result.save()
+        analyzer.analyze(result.timers.analysis)
+        if args.run != Steps.ANALYZE.value:
+            gc.collect()
+            Evaluate(result).solve_all(result.timers.eval)
+        result.timers.total.stop()
+        result.save().to_pretty()
+        return result
 
     # if input file does not exist,
     # print nice message to explain, then exit.
-    if not isfile(args.input):
+    if isfile(args.input):
+        return analyze_file(args.input)
+    elif isdir(args.input):
+        all_files = [os_join(path) for path in
+                     Path(args.input).rglob('*.*')]
+        can_analyze = [f for f in all_files if choose_analyzer(f)]
+        for fl in can_analyze:
+            analyze_file(fl)
+    else:
         logger.fatal(f'{Colors.FAIL}File does not exist: '
                      f'{args.input}{Colors.ENDC}')
         sys.exit(1)
-
-    # analyzer and solver setup
-    # noinspection PyPep8Naming
-    MyAnalyzer = choose_analyzer(args.input)
-    if MyAnalyzer is None:
-        logger.fatal('No supported analyzer')
-        sys.exit(1)
-    result.analyzer = MyAnalyzer.__name__
-    result.solver = Evaluate.info()
-    logger.debug(f'Using {result.analyzer}')
-
-    # run the analyzer
-    result.timers.total.start()
-    analyzer = MyAnalyzer(result)
-    analyzer.parse(result.timers.parse)
-    if args.run == Steps.PARSE.value:
-        result.timers.total.stop()
-        return result.save()
-    analyzer.analyze(result.timers.analysis)
-    if args.run != Steps.ANALYZE.value:
-        gc.collect()
-        Evaluate(result).solve_all(result.timers.eval)
-    result.timers.total.stop()
-    result.save().to_pretty()
-    return result
 
 
 def __logger_setup(level_arg: int, log_filename: str = None) \
@@ -113,7 +125,7 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
     """Setup available program arguments."""
     parser.add_argument(
         'input',
-        help='path to an input program file',
+        help='path to an input program or directory',
         nargs='?'
     )
     parser.add_argument(

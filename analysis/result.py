@@ -36,6 +36,7 @@ class Result(dict):
         elif options:
             def fmt(x):
                 return x.upper().replace(' ', '').split('=', 1)
+
             items = [o for o in options.split(',') if '=' in o]
             for k, v in [fmt(o) for o in items]:
                 if k in initial:
@@ -142,12 +143,6 @@ class Result(dict):
         self.__setitem__('reloaded', True)
         return self
 
-    @property
-    def log_fn(self) -> str:
-        """Generate default name for a log file."""
-        return (self.outfile or utils.gen_filename(
-            self.infile, depth=0)) + ".log "
-
     def to_pretty(self) -> Result:
         """Pretty-print analysis results."""
         if PRINTER.PRETTY:
@@ -242,7 +237,7 @@ class MethodResult(AnalysisResult):
         super().__setitem__('full_name', full_name)
         super().__setitem__('source', source)
         super().__setitem__('flows', flows)
-        super().__setitem__('identifiers', list(identifiers or {}))
+        super().__setitem__('vars', list(identifiers or {}))
         super().__setitem__('skips', skips or [])
         super().__setitem__('sat', None)
         super().__setitem__('model', None)
@@ -260,7 +255,7 @@ class MethodResult(AnalysisResult):
 
     @property
     def ids(self) -> Tuple[str]:
-        return tuple(self.__getitem__('identifiers'))
+        return tuple(self.__getitem__('vars'))
 
     @property
     def flows(self) -> List[str, str]:
@@ -350,7 +345,8 @@ class MethodResult(AnalysisResult):
         model = (self.join_(self.model.split(", "))
                  if self.model else '-')
         m_vals = f'\n{" " * self.PAD}{model}' if self.model else ''
-        skips = (f'\n{"SKIPS:":<{self.PAD}}{self.join_(self.skips)}'
+        pretty_skips = [utils.rem_ws(s) for s in self.skips]
+        skips = (f'\n{"SKIPS:":<{self.PAD}}{self.join_(pretty_skips)}'
                  if self.skips else "")
         return (f'{"METHOD:":<{self.PAD}}{name}\n{source}'
                 f'{"VARS:":<{self.PAD}}{vars_}\n'

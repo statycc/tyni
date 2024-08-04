@@ -1,11 +1,12 @@
 import os
 from typing import Any
+import re
 
 
 def ensure_path(fn: str) -> None:
     """Make sure directory exists.
 
-    Arguments
+    Arguments:
         fn: filename
     """
     dir_path, _ = os.path.split(fn)
@@ -14,7 +15,15 @@ def ensure_path(fn: str) -> None:
 
 
 def trunc_name(fn: str, max_len: int) -> str:
-    """Truncate file path to fit in max_len."""
+    """Truncate file path for presentation.
+
+    Argument:s
+        fn: filename
+        max_len: allowed max len.
+
+    Returns:
+       File name formatted to fit max len.
+    """
     if len(fn) <= max_len:
         return fn
     pth = os.path.normpath(fn).split(os.path.sep)
@@ -59,10 +68,19 @@ def gen_filename(
     Returns:
         The generated file name.
     """
-    dir_depth = -(depth + 1)  # +1 for the filename
-    file_only = os.path.splitext(in_file)[0]
-    file_name = '_'.join(file_only.split('/')[dir_depth:])
+    file_only = (os.path.splitext(in_file)[0]).split('/')
+    dir_depth = min(len(file_only), (depth + 1))  # +1 for the filename
+    file_name = '_'.join(file_only[-dir_depth:])
     return os.path.join(out_dir, f"{file_name}.{ext}")
+
+
+def log_filename(in_str: str, out_dir) -> str:
+    """Generate default name for a log file."""
+    return gen_filename(in_str, out_dir or 'out', depth=3, ext='log')
+
+
+def rem_ws(txt: str):
+    return re.sub('\\s+', " ", txt)
 
 
 # noinspection PyClassHasNoInit,PyPep8Naming
