@@ -74,9 +74,9 @@ def main() -> Result:
         all_files = [os_join(path) for path in
                      Path(args.input).rglob('*.*')]
         files = [f for f in all_files if choose_analyzer(f)]
-        res = DirResult(args.input, files, printer=args.print)
+        res = DirResult(args.input, len(files), printer=args.print)
         for fl in files:
-            res.results.append(analyze_file(fl))
+            res.record(analyze_file(fl))
             res.show_progress()
         res.to_pretty()
     else:

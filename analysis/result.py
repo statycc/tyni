@@ -27,19 +27,24 @@ TIME     -- show analysis time
 
 class DirResult:
 
-    def __init__(self, in_: str, files: list[str], printer=None):
+    def __init__(self, in_: str, n_files: int, printer=None):
         self.infile = in_
-        self.files = files
-        self.results = []
+        self.files = n_files
+        self.results = 0
+        self.stats_skip = dict()
+        self.stats_full_files = []
+        self.stats_none_files = []
+        self.stats_full_methods = 0
+        self.stats_methods = 0
         Result.config_printer(printer)
 
     @property
     def n(self) -> int:
-        return len(self.files)
+        return self.files
 
     @property
     def i(self) -> int:
-        return len(self.results)
+        return self.results
 
     @property
     def progress(self) -> float:
@@ -50,31 +55,47 @@ class DirResult:
             print(f"\nProgress: {self.i} of {self.n},"
                   f" {self.progress:.0%}")
 
+    def record(self, result: Result):
+        ar = result.analysis_result
+        mth, full_m = 0, 0
+        for cls in ar.children():
+            for m in ar.children_of(cls):
+                mth += 1
+                for s in ar[cls][m].pretty_skips:
+                    if s not in self.stats_skip:
+                        self.stats_skip[s] = 1
+                    else:
+                        self.stats_skip[s] += 1
+                if len(ar[cls][m].skips) == 0:
+                    full_m += 1
+        if mth == full_m:
+            target = self.stats_full_files \
+                if mth > 0 else self.stats_none_files
+            target.append(result.infile)
+        self.stats_methods += mth
+        self.stats_full_methods += full_m
+        self.results += 1
+
+    def top_skips(self, take=20):
+        items = [(v, k) for k, v in self.stats_skip.items()]
+        return sorted(items, reverse=True)[:take]
+
     def to_pretty(self) -> DirResult:
         """Show aggregate stats for whole-directory."""
         if PRINTER.PRETTY:
-            skip_dict = dict()
-            methods, full_cover = 0, 0
-            for r in self.results:
-                ar = r.analysis_result
-                for cls in ar.children():
-                    for m in ar.children_of(cls):
-                        methods += 1
-                        for s in ar[cls][m].pretty_skips:
-                            if s not in skip_dict:
-                                skip_dict[s] = 1
-                            else:
-                                skip_dict[s] += 1
-                        if len(ar[cls][m].skips) == 0:
-                            full_cover += 1
-
-            view = [f"  {v}x {k}" for (v, k) in
-                    sorted([(v, k) for k, v in
-                            skip_dict.items()],
-                           reverse=True)[:20]]
+            nsp = '\n  '
+            partial = (self.n - len(self.stats_none_files) -
+                       len(self.stats_full_files))
             print(AnalysisResult.SEP[1:] +
-                  f"Fully covered methods: {full_cover} of {methods}"
-                  "\nSKIPPED (TOP 20)\n" + "\n".join(view))
+                  f"All files: {self.n}"
+                  f"{nsp}{len(self.stats_full_files)} full cover"
+                  f"{nsp}{partial} partial cover"
+                  f"{nsp}{len(self.stats_none_files)} empty"
+                  f"\nAll methods: {self.stats_methods}"
+                  f"{nsp}{self.stats_full_methods} full cover"
+                  f"\nSKIPPED STATEMENTS (TOP 20){nsp}" +
+                  nsp.join([f"{v}x {k}" for (v, k) in
+                           self.top_skips(20)]))
         return self
 
 
@@ -423,7 +444,7 @@ class MethodResult(AnalysisResult):
         """List skipped statements, after minor formatting."""
 
         def fmt(stmt):
-            for v_name in self.ids:
+            for v_name in sorted(self.ids, key=lambda x: -len(x)):
                 stmt = stmt.replace(v_name, '')
             return utils.rem_ws(stmt.replace(';', '')).strip()
 
