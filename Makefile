@@ -52,6 +52,9 @@ ptest: $(P_DIR)
 bench:
 	@python3 -m $(ANALYZER) benchmarks/JavaSourceCode -r a -l 0 -p "methods=0,time=0,code=0"
 
+bench-sb:
+	@python3 -m $(ANALYZER) benchmarks/JavaSourceCode -r a -l 0 -p "methods=0,time=0,code=0" --exclude "SecuriBench*"
+
 test:
 	pytest --cov-config=.coveragerc --cov=$(ANALYZER) tests --show-capture=no
 

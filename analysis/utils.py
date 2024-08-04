@@ -1,6 +1,6 @@
 import os
-from typing import Any
 import re
+from typing import Any
 
 
 def ensure_path(fn: str) -> None:
@@ -12,7 +12,6 @@ def ensure_path(fn: str) -> None:
     dir_path, _ = os.path.split(fn)
     if len(dir_path) > 0 and not os.path.exists(dir_path):
         os.makedirs(dir_path)
-
 
 def trunc_name(fn: str, max_len: int) -> str:
     """Truncate file path for presentation.

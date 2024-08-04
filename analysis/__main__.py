@@ -71,9 +71,13 @@ def main() -> Result:
     if isfile(args.input):
         return analyze_file(args.input)
     elif isdir(args.input):
+        excl = ([os_join(path) for path in
+                 Path(args.input).rglob(args.exclude)]
+                if args.exclude else [])
         all_files = [os_join(path) for path in
                      Path(args.input).rglob('*.*')]
-        files = [f for f in all_files if choose_analyzer(f)]
+        files = [f for f in all_files if choose_analyzer(f)
+                 and all(not f.startswith(e) for e in excl)]
         res = DirResult(args.input, len(files), printer=args.print)
         for fl in files:
             res.record(analyze_file(fl))
@@ -155,12 +159,19 @@ def __parse_args(parser: ArgumentParser) -> Namespace:
         type=str.upper
     )
     parser.add_argument(
+        '-x', '--exclude',
+        action='store',
+        dest='exclude',
+        help='for directory input: exclude RE-pattern match',
+        metavar="RE",
+    )
+    parser.add_argument(
         '-p', '--print',
         action='store',
         dest='print',
         metavar="OPT",
         help='turn result printing options on=1 or off=0\n'
-             'disable all printing output by "0"\n'
+             'disable all printing by "0"\n'
              '(default: "methods=1,code=1,time=1")',
         type=str.upper
     )
