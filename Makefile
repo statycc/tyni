@@ -3,6 +3,8 @@ all: lint test
 help:
 	@echo "test      ─ run unit tests"
 	@echo "lint      ─ run linter"
+	@echo "bench     ─ analyze benchmark programs"
+	@echo "bench-sb  ─ analyze benchmark programs (excl. SecuriBench-*)"
 	@echo "ptest     ─ try parse all programs"
 	@echo "missing   ─ stmts missing test coverage (ignoring parser)"
 	@echo "compile   ─ compile java programs to bytecode"
