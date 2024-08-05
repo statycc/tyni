@@ -13,6 +13,7 @@ def ensure_path(fn: str) -> None:
     if len(dir_path) > 0 and not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
+
 def trunc_name(fn: str, max_len: int) -> str:
     """Truncate file path for presentation.
 
@@ -78,7 +79,8 @@ def log_filename(in_str: str, out_dir) -> str:
     return gen_filename(in_str, out_dir or 'out', depth=3, ext='log')
 
 
-def rem_ws(txt: str):
+def rem_ws(txt: str) -> str:
+    """Remove whitespace from text."""
     return re.sub('\\s+', " ", txt)
 
 
