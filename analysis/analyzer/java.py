@@ -516,8 +516,9 @@ class RecVisitor(ExtVisitor):
             logger.debug(f'R/obj: {", ".join(o_in)} → {ref}')
         return {ref}, set()
 
-    def xvars(self, ctx: JavaParser.ExpressionContext) -> set[str]:
-        """Find variables in an expression.
+    def bx_vars(self, ctx: JavaParser.ExpressionContext) -> set[str]:
+        """Find variables in an expression where expression
+        evaluates to a boolean.
 
         Returns:
             Set of occurring variables.
@@ -525,13 +526,13 @@ class RecVisitor(ExtVisitor):
         if (ctx.getChildCount()) == 3:  # binary ops
             lc, op, rc = [ctx.getChild(n) for n in [0, 1, 2]]
             if lc.getText() == '(' and rc.getText() == ')':
-                return self.xvars(op)
+                return self.bx_vars(op)
             # Java-style equality comparison: a.equals(b)
             # => ignore the equals identifier
             if ((op.getText()) == "."
                     and rc.getChildCount() == 2
                     and rc.getChild(0).getText() == 'equals'):
-                return self.xvars(lc) | self.xvars(rc.getChild(1))
+                return self.bx_vars(lc) | self.bx_vars(rc.getChild(1))
         return RecVisitor.occurs(ctx)
 
     def visitMethodCall(self, ctx: JavaParser.MethodCallContext):
@@ -619,7 +620,6 @@ class RecVisitor(ExtVisitor):
                 self.matrix = self.compose(self.matrix, flows)
                 return
 
-            # dot operator e.g., System.out.println
             if op == ".":
                 return self.skipped(ctx, 'dot-exp')
 
@@ -652,11 +652,13 @@ class RecVisitor(ExtVisitor):
         if ctx.getChildCount() < 3:  # return;
             return
         # TODO: do not break up a dot expression
+        #   followed by method call
+        r_vars = RecVisitor.occurs(ctx.getChild(1))
         if "." in ctx.getChild(1).getText():
+            print(r_vars)
             self.skipped(ctx.getChild(1), 'return dot-exp')
             return
         # TODO: maybe need a fresh var?
-        r_vars = self.xvars(ctx)
         logger.debug(f'return: {r_vars}')
         RecVisitor.merge(self.ret_v, r_vars)
 
@@ -693,7 +695,7 @@ class RecVisitor(ExtVisitor):
             visited: RecVisitor = None
     ) -> RecVisitor:
         """Analyze body stmt and apply correction."""
-        e_vars = self.xvars(exp)
+        e_vars = self.bx_vars(exp)
         stmt = visited or RecVisitor().visit(body)
         RecVisitor.merge(stmt.vars, e_vars)
         corr = RecVisitor.correction(e_vars, stmt.out_v)
@@ -773,9 +775,9 @@ class IdVisitor(ExtVisitor):
     def vars(self):
         return set(self.flat)
 
-    # def visitExpression(self, ctx: JavaParser.ExpressionContext):
-    #     print('expression!', ctx.getText())
-    #     super().visitExpression(ctx)
+    def visitExpression(self, ctx: JavaParser.ExpressionContext):
+        print('expression!', ctx.getText())
+        super().visitExpression(ctx)
 
     def visitCreatedName(self, ctx: JavaParser.CreatedNameContext):
         """CreatedName (cf. JavaParser.g4 L729-731) is a dot-separated
