@@ -10,7 +10,6 @@ help:
 	@echo "compile   ─ compile java programs to bytecode"
 	@echo "bytecode  ─ compile java programs to -readable- bytecode"
 	@echo "parser    ─ build a parser from grammars"
-	@echo "cloc      ─ code stats (requires cloc)"
 	@echo "clean     ─ remove all generated files (except parser)"
 
 ### ANTLR SETUP
@@ -24,9 +23,10 @@ PNAME = Program
 P_DIR = programs
 O_DIR = build
 B_DIR = bytecode
+BM_DIR = benchmarks/JavaSourceCode
 PROGZ = $(patsubst %/,%, $(patsubst $(P_DIR)/%,%, $(dir $(wildcard $(P_DIR)/*/$(PNAME).java))))
-PROGS = $(wildcard $(P_DIR)/**/*.java) $(wildcard benchmarks/JavaSourceCode/**/**/*.java)
-BENCH = $(wildcard benchmarks/JavaSourceCode/**/**/*.java)
+PROGS = $(wildcard $(P_DIR)/**/*.java) $(wildcard $(BM_DIR)/**/**/*.java)
+BENCH = $(wildcard $(BM_DIR)/**/**/*.java)
 
 ### ANALYSIS
 ANALYZER = analysis
@@ -52,10 +52,10 @@ ptest: $(P_DIR)
 	@$(foreach p, $(PROGS), echo "PARSE $(p)" && python3 -m $(ANALYZER) $(p) -r p -l 0 ; )
 
 bench:
-	@python3 -m $(ANALYZER) benchmarks/JavaSourceCode -r a -l 0 -p "methods=0,time=0,code=0"
+	@python3 -m $(ANALYZER) $(BM_DIR) -r a -l 0 -p "methods=0,time=0,code=0"
 
 bench-sb:
-	@python3 -m $(ANALYZER) benchmarks/JavaSourceCode -r a -l 0 -p "methods=0,time=0,code=0" --exclude "SecuriBench*"
+	@python3 -m $(ANALYZER) $(BM_DIR) -r a -l 0 -p "methods=0,time=0,code=0" --exclude "SecuriBench*"
 
 test:
 	pytest --cov-config=.coveragerc --cov=$(ANALYZER) tests --show-capture=no
@@ -71,5 +71,5 @@ cloc:
 
 clean:
 	@rm -rf $(O_DIR) $(B_DIR) $(OUTPUT)
-	@rm -rf .pytest_cache tests/.pytest_cache .coverage .cov_missing
+	@rm -rf .pytest_cache tests/.pytest_cache .coverage .cov_missing .coveragerc
 	@find . -name \*.Program.txt -type f -delete
