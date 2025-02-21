@@ -1,26 +1,30 @@
-# Non-interference analyzer 
+# ᴛʏɴɪ
 
-A static analyzer of data confidentiality issues, implementing our information flow logic (work in progress).
+__The anytime non-interference analyzer.__
+
+ᴛʏɴɪ is a static analyzer of data confidentiality issues, implementing the information flow logic $\top^{\ast}_{ɴɪ}$.  
+The name comes from anʏᴛime ɴon-ɪnterference, but since composition order is irrelevant, the letters compose to ᴛʏɴɪ. 
 
 ## How it works
 
 1. User specifies an input file.
-2. Parse the input to obtain a parse-tree.
-3. Capture a security-flow matrix from the parse tree.
-4. Evaluate the matrix against security policy and security classes using an SMT solver.
+2. Input is parsed to obtain a parse-tree.
+3. The parse tree is analyzed to construct a security-flow matrix (SFM).
+4. The SFM is evaluated against a security policy and security classes using an SMT solver.
 
-                             input.java
-                                  ↓
-         ╔──── the analyzer ──────────────────────────────────────╗
-         │  1. generate parse-tree   // ANTLR parser              │
-         │  2. gather matrix data    // analysis by NI logic      │
-         │  3. evaluate matrix data  // evaluation (Z3)           │
-         ╚────────────────────────────────────────────────────────╝
-                                  ↓
-                               result
+```
+                   input.java
+                        ↓
+╔──── the ᴛʏɴɪ analyzer ─────────────────────────────────╗
+│  1. generate parse-tree : ANTLR parser                 │
+│  2. gather matrix data : logical analysis              │
+│  3. evaluate matrix data : evaluation (Z3)             │
+╚────────────────────────────────────────────────────────╝
+                        ↓
+                     result  
+```
 
-
-## Interpreting results
+#### Interpreting the result
 
 The analyzer captures details of the input file, data-flow facts, and timing information; incl. for each method:
 
@@ -31,7 +35,7 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
     model              : Security levels to make the method non-interfering
     skips              : Uncovered program statements (if any) 
 
-* The variables list may be incomplete; variables that occur only in "uninteresting" statements (e.g., an unused variable declaration) are excluded.
+* The variables list may be incomplete since "unintersting" variables are excluded.
 * We can only make judgments for methods with full syntax coverage, otherwise the results are inconclusive.
 * If a method includes uncovered statements, these statements are omitted by the analyzer and highlighted.
 * To inspect all captured data, save the result to a file (use `--save` argument). 
@@ -60,7 +64,9 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
         python3 -m analysis
 
 
-## Repository organization
+## About this repository 
+
+#### Organization
 
     .
     ├─ .github/                # instructions and workflows      
@@ -75,7 +81,7 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
     └─ *                       # development utilities, etc.
 
 
-## Commands
+#### Commands
 
 Some helpful commands for development
 
@@ -90,20 +96,3 @@ Some helpful commands for development
 * The analyzer expects input in high-level input language (a Java file).
 * It is not necessary to compile the java programs, but doing so has benefits (e.g., checking input is valid)
 * The parser is pre-built (but can be re-built with the Makefile commands).
-
-#### About design choices
-
-* No optimizations are applied to the input program; it is analyzed as-is (excl. comments).
-* All variables, methods, etc. retain their original identifiers.
-* The Java parser is generated, with [ANTLR](https://www.antlr.org/), from the grammars.
-* Using ANTLR has many benefits for this kind of project:
-    * Can add front-end languages with low(-ish) overhead.
-    * Can choose input languages so that comparisons with previous works is possible.
-    * Analyzer implementation freedom: can choose any ANTLR target language.
-    * Adding OOP concepts later should be implementationally straightforward.
-    * Immediately have a precise documented specification of supported inputs.
-    * See list of all available [grammars](https://github.com/antlr/grammars-v4) if this is of interest.
-* Everything done here should be doable in compiler IR.
-    * Parse tree has more information than necessary; the analysis could do with less.
-    * Current design makes the analyzer light and isolated for simplicity.
-    * No reason so far why it could not take place inside a compiler.
