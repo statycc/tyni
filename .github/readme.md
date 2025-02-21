@@ -2,7 +2,7 @@
 
 __The anytime non-interference analyzer.__
 
-ᴛʏɴɪ is a static analyzer of data confidentiality issues, implementing the information flow logic $\top^{\ast}_{ɴɪ}$.  
+ᴛʏɴɪ is a static analyzer of data confidentiality issues, implementing the information flow logic $\top^{\ast}_{ɴɪ}$.
 The name comes from anʏᴛime ɴon-ɪnterference, but since composition order is irrelevant, the letters compose to ᴛʏɴɪ. 
 
 ## How it works
