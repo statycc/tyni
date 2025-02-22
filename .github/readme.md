@@ -16,10 +16,10 @@ The name comes from anʏᴛime ɴon-ɪnterference, but since composition order i
                    input.java
                         ↓
 ╔──── the ᴛʏɴɪ analyzer ──────────────────────────────╗
-│  1. generate parse-tree : ANTLR parser                 │
-│  2. gather matrix data : logical analysis              │
-│  3. evaluate matrix data : evaluation (Z3)             │
-╚───────────────────────────────────────────────────╝
+│  1. generate parse-tree : ANTLR parser              │
+│  2. gather matrix data : logical analysis           │
+│  3. evaluate matrix data : evaluation (Z3)          │
+╚─────────────────────────────────────────────────────╝
                         ↓
                      result  
 ```
