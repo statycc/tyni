@@ -18,7 +18,7 @@ The name comes from anʏᴛime ɴon-ɪnterference, but since composition order i
 ╔──── the ᴛʏɴɪ analyzer ──────────────────────────────╗
 │  1. generate parse-tree : ANTLR parser              │
 │  2. gather matrix data : logical analysis           │
-│  3. evaluate matrix data : evaluation (Z3)          │
+│  3. evaluate matrix data : evaluation with Z3       │
 ╚─────────────────────────────────────────────────────╝
                         ↓
                      result  
@@ -26,7 +26,8 @@ The name comes from anʏᴛime ɴon-ɪnterference, but since composition order i
 
 #### Interpreting the result
 
-The analyzer captures details of the input file, data-flow facts, and timing information; incl. for each method:
+The analyzer captures details of the input file, data-flow facts, and timing information.
+For each method, the result includes:
 
     name               : Fully qualified method name
     variables          : Encountered variables, see note below               
@@ -37,7 +38,7 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
 
 * The variables list may be incomplete since "unintersting" variables are excluded.
 * We can only make judgments for methods with full syntax coverage, otherwise the results are inconclusive.
-* If a method includes uncovered statements, these statements are omitted by the analyzer and highlighted.
+* If a method includes uncovered statements, these statements are omitted from analysis and highlighted.
 * To inspect all captured data, save the result to a file (use `--save` argument). 
 * The full details of results gathered by the analyzer are defined in [`analysis/result`](analysis/result.py). 
 
