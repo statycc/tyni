@@ -15,11 +15,11 @@ The name comes from anʏᴛime ɴon-ɪnterference, but since composition order i
 ```
                    input.java
                         ↓
-╔──── the ᴛʏɴɪ analyzer ─────────────────────────────────╗
+╔──── the ᴛʏɴɪ analyzer ──────────────────────────────╗
 │  1. generate parse-tree : ANTLR parser                 │
 │  2. gather matrix data : logical analysis              │
 │  3. evaluate matrix data : evaluation (Z3)             │
-╚────────────────────────────────────────────────────────╝
+╚───────────────────────────────────────────────────╝
                         ↓
                      result  
 ```
@@ -48,6 +48,13 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
 1. Install dependencies
 
        pip install -r requirements.txt
+
+   On an externally-managed environment, run
+
+       python3 -m venv venv
+       venv/bin/pip install -r requirements.txt
+
+   and replace below `python3` with `venv/bin/python3`.
 
 2. Run analyzer on input program
 
