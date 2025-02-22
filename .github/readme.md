@@ -49,7 +49,14 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
 
        pip install -r requirements.txt
 
-2. Run analyzer on input program
+   On an externally-managed environment, run
+
+       python3 -m venv venv
+       venv/bin/pip install -r requirements.txt
+
+   and replace below `python3` with `venv/bin/python3`.
+
+3. Run analyzer on input program
 
    By default, the result is pretty-printed at the screen.
 
@@ -59,7 +66,7 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
 
        python3 -m analysis programs/ifcprog1/Program.java --save
 
-3. For help and for a full list of available arguments, run
+4. For help and for a full list of available arguments, run
 
         python3 -m analysis
 
