@@ -15,11 +15,11 @@ The name comes from anʏᴛime ɴon-ɪnterference, but since composition order i
 ```
                    input.java
                         ↓
-╔──── the ᴛʏɴɪ analyzer ─────────────────────────────────╗
+╔──── the ᴛʏɴɪ analyzer ──────────────────────────────╗
 │  1. generate parse-tree : ANTLR parser                 │
 │  2. gather matrix data : logical analysis              │
 │  3. evaluate matrix data : evaluation (Z3)             │
-╚────────────────────────────────────────────────────────╝
+╚───────────────────────────────────────────────────╝
                         ↓
                      result  
 ```
@@ -56,7 +56,7 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
 
    and replace below `python3` with `venv/bin/python3`.
 
-3. Run analyzer on input program
+2. Run analyzer on input program
 
    By default, the result is pretty-printed at the screen.
 
@@ -66,7 +66,7 @@ The analyzer captures details of the input file, data-flow facts, and timing inf
 
        python3 -m analysis programs/ifcprog1/Program.java --save
 
-4. For help and for a full list of available arguments, run
+3. For help and for a full list of available arguments, run
 
         python3 -m analysis
 
